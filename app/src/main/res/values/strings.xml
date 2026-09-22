@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">SMS AI Relay</string>
+    <string name="permissions_granted">Permissions granted — listening for SMS.</string>
+    <string name="permissions_needed">SMS permissions are required for this app to work.</string>
+    <string name="grant_permissions">Grant SMS Permissions</string>
+    <string name="open_settings">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_api_key_label">Claude API key</string>
+    <string name="settings_api_key_hint">sk-ant-…</string>
+    <string name="save">Save</string>
+    <string name="settings_saved">Saved.</string>
+</resources>
