@@ -7,6 +7,8 @@
     <string name="settings_title">Settings</string>
     <string name="settings_api_key_label">Claude API key</string>
     <string name="settings_api_key_hint">sk-ant-…</string>
+    <string name="settings_allowlist_label">Allowed senders (one number per line). Texts from anyone else are ignored.</string>
+    <string name="settings_allowlist_hint">+91 98765 43210</string>
     <string name="save">Save</string>
     <string name="settings_saved">Saved.</string>
 </resources>

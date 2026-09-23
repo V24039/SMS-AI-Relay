@@ -5,6 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -58,15 +59,26 @@ object ClaudeApiClient {
                 if (!response.isSuccessful) {
                     Result.failure(IOException("Claude API error ${response.code}: $bodyText"))
                 } else {
-                    val text = JSONObject(bodyText)
-                        .getJSONArray("content")
-                        .getJSONObject(0)
-                        .getString("text")
-                    Result.success(text.trim())
+                    Result.success(extractText(bodyText))
                 }
             }
         } catch (e: IOException) {
             Result.failure(e)
+        } catch (e: JSONException) {
+            Result.failure(e)
         }
+    }
+
+    // Joins every text block rather than assuming content[0] is text.
+    private fun extractText(bodyText: String): String {
+        val content = JSONObject(bodyText).getJSONArray("content")
+        val text = buildString {
+            for (i in 0 until content.length()) {
+                val block = content.getJSONObject(i)
+                if (block.optString("type") == "text") append(block.optString("text"))
+            }
+        }.trim()
+        if (text.isEmpty()) throw JSONException("Response had no text content")
+        return text
     }
 }

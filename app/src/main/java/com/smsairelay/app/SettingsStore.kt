@@ -7,6 +7,7 @@ object SettingsStore {
 
     private const val PREFS_NAME = "relay_settings"
     private const val KEY_API_KEY = "api_key"
+    private const val KEY_ALLOWLIST = "sender_allowlist"
 
     fun getApiKey(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -17,6 +18,20 @@ object SettingsStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_API_KEY, apiKey.trim())
+            .apply()
+    }
+
+    fun getAllowlistRaw(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_ALLOWLIST, null).orEmpty()
+
+    fun getAllowlist(context: Context): List<String> =
+        SenderAllowlist.parse(getAllowlistRaw(context))
+
+    fun setAllowlist(context: Context, raw: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_ALLOWLIST, raw.trim())
             .apply()
     }
 }

@@ -21,7 +21,14 @@ class SmsReceiver : BroadcastReceiver() {
 
         val sender = messages[0].originatingAddress ?: return
         val body = messages.joinToString(separator = "") { it.messageBody ?: "" }
-        Log.i(TAG, "SMS from $sender: $body")
+
+        // Checked before goAsync() so unknown senders (spam, shortcodes, other bots)
+        // never cost an API call or an outgoing SMS. Empty allowlist = reply to nobody.
+        if (!SenderAllowlist.isAllowed(sender, SettingsStore.getAllowlist(context))) {
+            Log.i(TAG, "Dropped SMS from non-allowlisted sender")
+            return
+        }
+        if (BuildConfig.DEBUG) Log.d(TAG, "SMS from $sender: $body")
 
         // The Claude API call is network I/O, so it can't run inline on onReceive's
         // main thread — goAsync() buys the ~10s window a manifest receiver needs to
@@ -33,6 +40,9 @@ class SmsReceiver : BroadcastReceiver() {
             try {
                 val reply = buildReply(appContext, body)
                 sendReply(appContext, sender, reply)
+            } catch (e: Exception) {
+                // An uncaught exception here would crash the whole process.
+                Log.e(TAG, "Failed to handle incoming SMS", e)
             } finally {
                 pendingResult.finish()
             }

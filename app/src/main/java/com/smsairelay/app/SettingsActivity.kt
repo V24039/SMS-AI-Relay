@@ -15,9 +15,11 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.apiKeyInput.setText(SettingsStore.getApiKey(this).orEmpty())
+        binding.allowlistInput.setText(SettingsStore.getAllowlistRaw(this))
 
         binding.saveButton.setOnClickListener {
             SettingsStore.setApiKey(this, binding.apiKeyInput.text.toString())
+            SettingsStore.setAllowlist(this, binding.allowlistInput.text.toString())
             binding.savedNote.visibility = View.VISIBLE
         }
     }
