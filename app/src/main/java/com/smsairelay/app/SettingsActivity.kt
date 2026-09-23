@@ -11,11 +11,11 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
 
-    // Edits for each provider are kept while switching the dropdown, so typing a
-    // Gemini key and then looking at the OpenAI fields doesn't lose it before Save.
-    private data class Draft(var apiKey: String, var model: String)
-
-    private val drafts = mutableMapOf<AiProvider, Draft>()
+    // Edits are kept while switching the dropdown, so typing a Gemini key and then
+    // looking at the OpenAI fields doesn't lose it before Save. Keys are held per
+    // keySlot because some providers (Gemini/Gemma) share one.
+    private val keyDrafts = mutableMapOf<String, String>()
+    private val modelDrafts = mutableMapOf<AiProvider, String>()
     private lateinit var shownProvider: AiProvider
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,11 +24,9 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val providers = AiProvider.entries
-        AiProvider.entries.forEach { provider ->
-            drafts[provider] = Draft(
-                SettingsStore.getApiKey(this, provider).orEmpty(),
-                SettingsStore.getModelOverride(this, provider).orEmpty()
-            )
+        providers.forEach { provider ->
+            keyDrafts[provider.keySlot] = SettingsStore.getApiKey(this, provider).orEmpty()
+            modelDrafts[provider] = SettingsStore.getModelOverride(this, provider).orEmpty()
         }
         shownProvider = SettingsStore.getProvider(this)
         showDraft(shownProvider)
@@ -54,9 +52,9 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.saveButton.setOnClickListener {
             stashDraft()
-            drafts.forEach { (provider, draft) ->
-                SettingsStore.setApiKey(this, provider, draft.apiKey)
-                SettingsStore.setModelOverride(this, provider, draft.model)
+            providers.forEach { provider ->
+                SettingsStore.setApiKey(this, provider, keyDrafts.getValue(provider.keySlot))
+                SettingsStore.setModelOverride(this, provider, modelDrafts.getValue(provider))
             }
             SettingsStore.setProvider(this, shownProvider)
             SettingsStore.setAllowlist(this, binding.allowlistInput.text.toString())
@@ -65,17 +63,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun stashDraft() {
-        drafts.getValue(shownProvider).apply {
-            apiKey = binding.apiKeyInput.text.toString()
-            model = binding.modelInput.text.toString()
-        }
+        keyDrafts[shownProvider.keySlot] = binding.apiKeyInput.text.toString()
+        modelDrafts[shownProvider] = binding.modelInput.text.toString()
     }
 
     private fun showDraft(provider: AiProvider) {
-        val draft = drafts.getValue(provider)
         binding.apiKeyInput.hint = provider.keyHint
-        binding.apiKeyInput.setText(draft.apiKey)
+        binding.apiKeyInput.setText(keyDrafts.getValue(provider.keySlot))
         binding.modelInput.hint = provider.client.defaultModel
-        binding.modelInput.setText(draft.model)
+        binding.modelInput.setText(modelDrafts.getValue(provider))
     }
 }

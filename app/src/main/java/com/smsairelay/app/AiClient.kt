@@ -33,10 +33,18 @@ interface AiClient {
     ): Result<String>
 }
 
-enum class AiProvider(val displayName: String, val keyHint: String, val client: AiClient) {
-    CLAUDE("Claude (Anthropic)", "sk-ant-…", ClaudeClient),
-    GEMINI("Gemini (Google)", "AIza…", GeminiClient),
-    OPENAI("OpenAI", "sk-…", OpenAiClient.OPENAI);
+// keySlot groups providers that share one API key, e.g. Gemini and Gemma both use
+// a Google AI Studio key, so the user only enters it once.
+enum class AiProvider(
+    val displayName: String,
+    val keyHint: String,
+    val client: AiClient,
+    val keySlot: String
+) {
+    CLAUDE("Claude (Anthropic)", "sk-ant-…", ClaudeClient, "CLAUDE"),
+    GEMINI("Gemini (Google AI Studio)", "AIza…", GeminiClient.GEMINI, "GEMINI"),
+    GEMMA("Gemma open model (Google AI Studio)", "AIza…", GeminiClient.GEMMA, "GEMINI"),
+    OPENAI("OpenAI", "sk-…", OpenAiClient.OPENAI, "OPENAI");
 
     override fun toString() = displayName
 }

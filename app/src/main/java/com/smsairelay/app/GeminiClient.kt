@@ -5,15 +5,13 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-object GeminiClient : AiClient {
-
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/"
-
-    // Thinking tokens count against this, so it's well above what an SMS reply needs;
-    // reply length is controlled by the system prompt instead.
-    private const val MAX_OUTPUT_TOKENS = 2048
-
-    override val defaultModel = "gemini-3.8-flash"
+// Google AI Studio's generateContent API, which serves both Gemini and the open-weight
+// Gemma models under the same API key.
+class GeminiClient(
+    override val defaultModel: String,
+    // Only sent for defaultModel; the accepted levels differ between model families.
+    private val defaultThinkingLevel: String
+) : AiClient {
 
     override fun complete(
         apiKey: String,
@@ -48,10 +46,9 @@ object GeminiClient : AiClient {
             })
             put("generationConfig", JSONObject().apply {
                 put("maxOutputTokens", MAX_OUTPUT_TOKENS)
-                // Gemini 3.8 Flash can't disable thinking; "low" keeps latency down so the
-                // reply finishes inside the receiver's time window.
+                // Keeps latency down so the reply finishes inside the receiver's time window.
                 if (model == defaultModel) {
-                    put("thinkingConfig", JSONObject().put("thinkingLevel", "low"))
+                    put("thinkingConfig", JSONObject().put("thinkingLevel", defaultThinkingLevel))
                 }
             })
         }
@@ -76,4 +73,19 @@ object GeminiClient : AiClient {
     }
 
     private fun textParts(text: String) = JSONArray().put(JSONObject().put("text", text))
+
+    companion object {
+        private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/"
+
+        // Thinking tokens count against this, so it's well above what an SMS reply needs;
+        // reply length is controlled by the system prompt instead.
+        private const val MAX_OUTPUT_TOKENS = 2048
+
+        // Gemini 3.8 Flash can't disable thinking; "low" is its minimum.
+        val GEMINI = GeminiClient("gemini-3.8-flash", defaultThinkingLevel = "low")
+
+        // Gemma 4 26B is a mixture-of-experts model (~4B active), the faster of the two
+        // Gemma models AI Studio serves; "minimal" turns its thinking off.
+        val GEMMA = GeminiClient("gemma-4-26b-a4b-it", defaultThinkingLevel = "minimal")
+    }
 }

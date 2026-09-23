@@ -13,7 +13,7 @@ object SettingsStore {
     // Single key from before multi-provider support; it was always a Claude key.
     private const val KEY_LEGACY_API_KEY = "api_key"
 
-    private fun apiKeyPref(provider: AiProvider) = "api_key_${provider.name}"
+    private fun apiKeyPref(provider: AiProvider) = "api_key_${provider.keySlot}"
     private fun modelPref(provider: AiProvider) = "model_${provider.name}"
 
     private fun prefs(context: Context): SharedPreferences =

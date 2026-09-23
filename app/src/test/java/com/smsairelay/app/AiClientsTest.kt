@@ -43,7 +43,7 @@ class AiClientsTest {
 
     @Test
     fun geminiBodyMapsAssistantToModelRole() {
-        val body = GeminiClient.buildBody("gemini-3.8-flash", "sys", turns)
+        val body = GeminiClient.GEMINI.buildBody("gemini-3.8-flash", "sys", turns)
         val contents = body.getJSONArray("contents")
         assertEquals("model", contents.getJSONObject(1).getString("role"))
         assertEquals(
@@ -55,19 +55,35 @@ class AiClientsTest {
 
     @Test
     fun geminiThinkingLevelOnlyForDefaultModel() {
-        val tuned = GeminiClient.buildBody(GeminiClient.defaultModel, "sys", turns)
+        val tuned = GeminiClient.GEMINI.buildBody(GeminiClient.GEMINI.defaultModel, "sys", turns)
         assertEquals(
             "low",
             tuned.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
                 .getString("thinkingLevel")
         )
-        val custom = GeminiClient.buildBody("gemini-2.5-flash", "sys", turns)
+        val custom = GeminiClient.GEMINI.buildBody("gemini-2.5-flash", "sys", turns)
         assertFalse(custom.getJSONObject("generationConfig").has("thinkingConfig"))
     }
 
     @Test
+    fun gemmaUsesMinimalThinkingAndSystemInstruction() {
+        val body = GeminiClient.GEMMA.buildBody(GeminiClient.GEMMA.defaultModel, "sys", turns)
+        assertEquals(
+            "minimal",
+            body.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+                .getString("thinkingLevel")
+        )
+        assertTrue(body.has("systemInstruction"))
+    }
+
+    @Test
+    fun geminiAndGemmaShareOneApiKey() {
+        assertEquals(AiProvider.GEMINI.keySlot, AiProvider.GEMMA.keySlot)
+    }
+
+    @Test
     fun geminiParseSkipsThoughtParts() {
-        val reply = GeminiClient.parseReply(
+        val reply = GeminiClient.GEMINI.parseReply(
             """{"candidates":[{"content":{"role":"model","parts":[
                 {"text":"thinking...","thought":true},{"text":"It's 25C."}]}}]}"""
         )
@@ -77,7 +93,7 @@ class AiClientsTest {
     @Test
     fun geminiParseReportsBlockedPrompt() {
         try {
-            GeminiClient.parseReply("""{"promptFeedback":{"blockReason":"SAFETY"}}""")
+            GeminiClient.GEMINI.parseReply("""{"promptFeedback":{"blockReason":"SAFETY"}}""")
             throw AssertionError("expected JSONException")
         } catch (e: JSONException) {
             assertTrue(e.message!!.contains("SAFETY"))
