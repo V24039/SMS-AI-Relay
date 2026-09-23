@@ -50,13 +50,20 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private fun buildReply(context: Context, userMessage: String): String {
-        val apiKey = SettingsStore.getApiKey(context)
-            ?: return "SMS AI Relay: no API key set yet. Open the app and add one in Settings."
+        val provider = SettingsStore.getProvider(context)
+        val apiKey = SettingsStore.getApiKey(context, provider)
+            ?: return "SMS AI Relay: no ${provider.displayName} API key set yet. " +
+                "Open the app and add one in Settings."
 
-        return ClaudeApiClient.sendMessage(apiKey, userMessage).fold(
+        return provider.client.complete(
+            apiKey = apiKey,
+            model = SettingsStore.getModel(context, provider),
+            systemPrompt = SMS_SYSTEM_PROMPT,
+            turns = listOf(ChatTurn(ChatTurn.Role.USER, userMessage))
+        ).fold(
             onSuccess = { it },
             onFailure = {
-                Log.e(TAG, "Claude API call failed", it)
+                Log.e(TAG, "${provider.name} API call failed", it)
                 "Sorry, something went wrong reaching the AI. Try again in a bit."
             }
         )

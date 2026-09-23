@@ -25,7 +25,7 @@ Relay device (runs this app, has internet)
    → sender checked against allowlist (Settings)
    → Room DB: load conversation history for that sender number
    → reset policy evaluated (inactivity timeout / keyword / token budget)
-   → Claude Messages API called with system prompt + history + new message
+   → selected AI provider (Claude / Gemini / OpenAI) called with system prompt + history + new message
    → response appended to history in Room
    → SmsManager sends the reply (multipart if long)
 ```
@@ -40,8 +40,8 @@ No network component other than the outbound HTTPS call to the AI provider. No c
 - **Persistence**: Room (SQLite), on-device only. No external DB, no sync.
   - `conversations` / `messages` tables keyed by sender phone number.
   - Tracks `lastActivityAt` and a running token-estimate per conversation for reset logic.
-- **AI client**: plain OkHttp + `org.json` (bundled with Android), direct HTTPS calls to the Claude Messages API. Retrofit was considered but dropped — it's one endpoint, not worth the converter/interface machinery.
-- **Secrets**: API key stored in `EncryptedSharedPreferences` (Android Keystore-backed), entered by the user in a Settings screen — never hardcoded, never bundled, never leaves the device except in the Authorization header to Anthropic.
+- **AI client**: plain OkHttp + `org.json` (bundled with Android), direct HTTPS calls to the provider the user picks in Settings — Claude (Messages API), Gemini (`generateContent`), or OpenAI (Chat Completions). Each is one `AiClient` implementation (`AiClient.kt`); API key and optional model override are stored per provider. OpenAI uses Chat Completions (not the Responses API) because Groq, OpenRouter, Mistral, Cerebras etc. accept the same shape, so they can be added as `OpenAiClient` instances with a different base URL. Retrofit was considered but dropped — a handful of single endpoints isn't worth the converter/interface machinery.
+- **Secrets**: API key stored in `EncryptedSharedPreferences` (Android Keystore-backed), entered by the user in a Settings screen — never hardcoded, never bundled, never leaves the device except in the auth header of requests to the selected provider.
 - **Sending SMS**: `SmsManager.sendMultipartTextMessage()` for replies that exceed one segment.
 - **Reliability**: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` exemption flow, `BOOT_COMPLETED` receiver to re-arm after reboot.
 
@@ -90,12 +90,12 @@ Full interactive version: the "Relay Roadmap" artifact from project planning. Su
 5. **Locking the Door** — sender allowlist, encrypted API key storage.
 6. **Staying Alive** — battery exemption, boot receiver, foreground service hardening.
 7. **Out the Door** — README, license, CI-built signed release APK, F-Droid metadata.
-8. **Stretch: Bring Your Own AI** — abstract the AI call behind a provider interface so OpenAI/others can be added alongside Claude.
+8. **Bring Your Own AI** — provider interface with Claude, Gemini and OpenAI done early (cloud APIs only, no on-device models); next is OpenAI-compatible free providers (Groq, OpenRouter, etc.).
 
 Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered; the stretch goal is fair game any time after v1 ships.
 
 ## Conventions for future work in this repo
 
 - No server-side code belongs in this repo — if a change seems to require one, that's a signal the design has drifted from the core decision above; reconsider before adding it.
-- Keep the AI call behind a small interface even before the multi-provider stretch goal lands, so Phase 8 is additive rather than a rewrite.
+- New providers go behind the `AiClient` interface; prefer an `OpenAiClient` instance with a different base URL over a new client class when the provider is OpenAI-compatible.
 - Anything touching permissions, background execution, or notification behavior should be checked against current Android background-execution limits for the target API level — these change across Android versions and are the main source of real-world reliability bugs for this kind of app.
