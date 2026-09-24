@@ -49,6 +49,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.allowlistInput.setText(SettingsStore.getAllowlistRaw(this))
+        binding.idleTimeoutInput.setText(SettingsStore.getIdleTimeoutMinutes(this).toString())
 
         binding.saveButton.setOnClickListener {
             stashDraft()
@@ -58,6 +59,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             SettingsStore.setProvider(this, shownProvider)
             SettingsStore.setAllowlist(this, binding.allowlistInput.text.toString())
+            val idleMinutes = ConversationHistory.parseIdleTimeoutMinutes(binding.idleTimeoutInput.text.toString())
+            SettingsStore.setIdleTimeoutMinutes(this, idleMinutes)
+            binding.idleTimeoutInput.setText(idleMinutes.toString())
             binding.savedNote.visibility = View.VISIBLE
         }
     }

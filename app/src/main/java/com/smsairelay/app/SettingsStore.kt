@@ -9,6 +9,7 @@ object SettingsStore {
     private const val PREFS_NAME = "relay_settings"
     private const val KEY_PROVIDER = "provider"
     private const val KEY_ALLOWLIST = "sender_allowlist"
+    private const val KEY_IDLE_TIMEOUT_MINUTES = "idle_timeout_minutes"
 
     // Single key from before multi-provider support; it was always a Claude key.
     private const val KEY_LEGACY_API_KEY = "api_key"
@@ -60,5 +61,12 @@ object SettingsStore {
 
     fun setAllowlist(context: Context, raw: String) {
         prefs(context).edit().putString(KEY_ALLOWLIST, raw.trim()).apply()
+    }
+
+    fun getIdleTimeoutMinutes(context: Context): Int =
+        prefs(context).getInt(KEY_IDLE_TIMEOUT_MINUTES, ConversationHistory.DEFAULT_IDLE_TIMEOUT_MINUTES)
+
+    fun setIdleTimeoutMinutes(context: Context, minutes: Int) {
+        prefs(context).edit().putInt(KEY_IDLE_TIMEOUT_MINUTES, minutes).apply()
     }
 }

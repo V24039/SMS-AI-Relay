@@ -66,6 +66,22 @@
             android:inputType="phone|textMultiLine"
             android:minLines="3" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/settings_idle_timeout_label"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/idleTimeoutInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/settings_idle_timeout_hint"
+            android:inputType="number"
+            android:maxLength="5" />
+
         <Button
             android:id="@+id/saveButton"
             android:layout_width="wrap_content"

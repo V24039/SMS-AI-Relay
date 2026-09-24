@@ -50,12 +50,18 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private suspend fun buildReply(context: Context, conversationKey: String, userMessage: String): String {
+        val repository = ConversationRepository(context)
+        if (ConversationHistory.isResetCommand(userMessage)) {
+            repository.clear(conversationKey)
+            return ConversationHistory.RESET_REPLY
+        }
+
         val provider = SettingsStore.getProvider(context)
         val apiKey = SettingsStore.getApiKey(context, provider)
             ?: return "SMS AI Relay: no ${provider.displayName} API key set yet. " +
                 "Open the app and add one in Settings."
 
-        val repository = ConversationRepository(context)
+        repository.forgetInactive(SettingsStore.getIdleTimeoutMinutes(context))
         val turns = ConversationHistory.buildRequest(repository.load(conversationKey), userMessage)
 
         return provider.client.complete(

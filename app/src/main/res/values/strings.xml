@@ -10,6 +10,8 @@
     <string name="settings_model_label">Model (leave blank for the default shown)</string>
     <string name="settings_allowlist_label">Allowed senders (one number per line). Texts from anyone else are ignored.</string>
     <string name="settings_allowlist_hint">+91 98765 43210</string>
+    <string name="settings_idle_timeout_label">Start a new conversation after this many idle minutes. Text /new or RESET to start one anytime.</string>
+    <string name="settings_idle_timeout_hint">45</string>
     <string name="save">Save</string>
     <string name="settings_saved">Saved.</string>
 </resources>

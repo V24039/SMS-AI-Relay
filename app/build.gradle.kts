@@ -12,8 +12,8 @@ android {
         applicationId = "com.smsairelay.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3.0-phase3"
+        versionCode = 4
+        versionName = "0.4.0-phase4"
     }
 
     buildTypes {

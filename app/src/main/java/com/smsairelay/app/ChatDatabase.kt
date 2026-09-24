@@ -32,6 +32,21 @@ interface ChatMessageDao {
             "ORDER BY id DESC LIMIT :limit) ORDER BY id ASC"
     )
     suspend fun recent(key: String, limit: Int): List<ChatMessage>
+
+    @Query("DELETE FROM messages WHERE conversationKey = :key")
+    suspend fun deleteConversation(key: String)
+
+    @Query(
+        "DELETE FROM messages WHERE conversationKey IN (SELECT conversationKey FROM messages " +
+            "GROUP BY conversationKey HAVING MAX(timestamp) < :cutoff)"
+    )
+    suspend fun deleteInactiveBefore(cutoff: Long)
+
+    @Query(
+        "DELETE FROM messages WHERE conversationKey = :key AND id NOT IN " +
+            "(SELECT id FROM messages WHERE conversationKey = :key ORDER BY id DESC LIMIT :keep)"
+    )
+    suspend fun trim(key: String, keep: Int)
 }
 
 @Database(entities = [ChatMessage::class], version = 1, exportSchema = false)

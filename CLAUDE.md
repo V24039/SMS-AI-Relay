@@ -38,8 +38,8 @@ No network component other than the outbound HTTPS call to the AI provider. No c
 - **Background trigger**: manifest-registered `BroadcastReceiver` for `android.provider.Telephony.SMS_RECEIVED` (exempted from Android 8+ implicit-broadcast background restrictions, so it fires even when the app isn't running). `onReceive()` calls `goAsync()` and hands off immediately — no blocking work in the receiver itself.
 - **Processing**: a foreground service (persistent low-priority notification) does the actual work — DB read, API call, DB write, SMS send — so it isn't killed mid-flight by Doze/App Standby.
 - **Persistence**: Room (SQLite), on-device only. No external DB, no sync.
-  - `conversations` / `messages` tables keyed by sender phone number.
-  - Tracks `lastActivityAt` and a running token-estimate per conversation for reset logic.
+  - One `messages` table keyed by the normalised sender number (`SenderAllowlist.conversationKey`).
+  - Last activity is the newest message timestamp and the token estimate is computed at load time, so neither is stored separately.
 - **AI client**: plain OkHttp + `org.json` (bundled with Android), direct HTTPS calls to the provider the user picks in Settings — Claude (Messages API), Gemini or the open-weight Gemma models (both via Google AI Studio's `generateContent`, sharing one key through `AiProvider.keySlot`), or OpenAI (Chat Completions). Each is one `AiClient` implementation (`AiClient.kt`); API key and optional model override are stored per provider. OpenAI uses Chat Completions (not the Responses API) because Groq, OpenRouter, Mistral, Cerebras etc. accept the same shape, so they can be added as `OpenAiClient` instances with a different base URL. Retrofit was considered but dropped — a handful of single endpoints isn't worth the converter/interface machinery.
 - **Secrets**: API key stored in `EncryptedSharedPreferences` (Android Keystore-backed), entered by the user in a Settings screen — never hardcoded, never bundled, never leaves the device except in the auth header of requests to the selected provider.
 - **Sending SMS**: `SmsManager.sendMultipartTextMessage()` for replies that exceed one segment.
