@@ -22,6 +22,9 @@ object SenderAllowlist {
         return allowlist.any { significantDigits(it) == senderDigits }
     }
 
+    // Same number in different formats must land in the same conversation.
+    fun conversationKey(sender: String): String = significantDigits(sender) ?: sender
+
     private fun significantDigits(number: String): String? {
         val digits = number.filter { it.isDigit() }
         if (digits.length < MIN_DIGITS) return null

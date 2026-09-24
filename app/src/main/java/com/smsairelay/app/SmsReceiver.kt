@@ -38,7 +38,7 @@ class SmsReceiver : BroadcastReceiver() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val reply = buildReply(appContext, body)
+                val reply = buildReply(appContext, SenderAllowlist.conversationKey(sender), body)
                 sendReply(appContext, sender, reply)
             } catch (e: Exception) {
                 // An uncaught exception here would crash the whole process.
@@ -49,19 +49,25 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun buildReply(context: Context, userMessage: String): String {
+    private suspend fun buildReply(context: Context, conversationKey: String, userMessage: String): String {
         val provider = SettingsStore.getProvider(context)
         val apiKey = SettingsStore.getApiKey(context, provider)
             ?: return "SMS AI Relay: no ${provider.displayName} API key set yet. " +
                 "Open the app and add one in Settings."
 
+        val repository = ConversationRepository(context)
+        val turns = ConversationHistory.buildRequest(repository.load(conversationKey), userMessage)
+
         return provider.client.complete(
             apiKey = apiKey,
             model = SettingsStore.getModel(context, provider),
             systemPrompt = SMS_SYSTEM_PROMPT,
-            turns = listOf(ChatTurn(ChatTurn.Role.USER, userMessage))
+            turns = turns
         ).fold(
-            onSuccess = { it },
+            onSuccess = { reply ->
+                repository.saveExchange(conversationKey, userMessage, reply)
+                reply
+            },
             onFailure = {
                 Log.e(TAG, "${provider.name} API call failed", it)
                 "Sorry, something went wrong reaching the AI. Try again in a bit."
