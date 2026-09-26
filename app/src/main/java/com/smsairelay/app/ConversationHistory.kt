@@ -49,9 +49,10 @@ object ConversationHistory {
     }
 }
 
-class ConversationRepository(context: Context) {
+// Takes the DAO directly so tests can pass an in-memory database.
+class ConversationRepository(private val dao: ChatMessageDao) {
 
-    private val dao = ChatDatabase.get(context).messageDao()
+    constructor(context: Context) : this(ChatDatabase.get(context).messageDao())
 
     suspend fun load(conversationKey: String): List<ChatTurn> =
         ConversationHistory.toTurns(dao.recent(conversationKey, ConversationHistory.MAX_STORED_MESSAGES))

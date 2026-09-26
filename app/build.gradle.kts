@@ -31,6 +31,11 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        // Robolectric needs merged resources and the manifest to inflate views and resolve strings.
+        unitTests.isIncludeAndroidResources = true
+    }
+
     buildFeatures {
         viewBinding = true
         buildConfig = true
@@ -50,4 +55,26 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Android's bundled org.json is a stub in local unit tests; this is the real implementation.
     testImplementation("org.json:json:20240303")
+    // Runs the Android-dependent code (prefs, Room, receivers, service, activity) on the JVM.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("androidx.test.ext:junit-ktx:1.2.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+}
+
+// Print each test and a summary; Gradle is silent about test results by default.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+    afterSuite(KotlinClosure2<TestDescriptor, TestResult, Unit>({ suite, result ->
+        if (suite.parent == null) {
+            println(
+                "\nTests: ${result.testCount} run, ${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, ${result.skippedTestCount} skipped"
+            )
+        }
+    }))
 }

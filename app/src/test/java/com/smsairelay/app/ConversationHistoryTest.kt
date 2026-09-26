@@ -86,4 +86,35 @@ class ConversationHistoryTest {
             SenderAllowlist.conversationKey("098765 43210")
         )
     }
+
+    @Test
+    fun estimateTokensRoundsUpPerFourChars() {
+        assertEquals(0, ConversationHistory.estimateTokens(""))
+        assertEquals(1, ConversationHistory.estimateTokens("a"))
+        assertEquals(1, ConversationHistory.estimateTokens("abcd"))
+        assertEquals(2, ConversationHistory.estimateTokens("abcde"))
+    }
+
+    @Test
+    fun nonIntegerIdleTimeoutFallsBackToDefault() {
+        assertEquals(
+            ConversationHistory.DEFAULT_IDLE_TIMEOUT_MINUTES,
+            ConversationHistory.parseIdleTimeoutMinutes("1.5")
+        )
+    }
+
+    // A turn that exactly uses up the remaining budget is still kept.
+    @Test
+    fun turnExactlyFillingBudgetIsKept() {
+        val history = listOf(user("1"), assistant("2"))
+        val request = ConversationHistory.buildRequest(history, "3", tokenBudget = 3)
+        assertEquals(listOf(user("1"), assistant("2"), user("3")), request)
+    }
+
+    @Test
+    fun resetCommandMatchesOnlyTheExactWords() {
+        assertFalse(ConversationHistory.isResetCommand(""))
+        assertFalse(ConversationHistory.isResetCommand("new"))
+        assertTrue(ConversationHistory.isResetCommand("/NEW"))
+    }
 }

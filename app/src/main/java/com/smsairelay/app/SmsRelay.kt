@@ -17,11 +17,17 @@ object SmsRelay {
     // together would otherwise both read the same history and save out of order.
     private val lock = Mutex()
 
+    // Replaced in tests so the pipeline runs against an in-memory database, a fake AI
+    // client and a captured outbox instead of real network calls and real texts.
+    internal var repositoryFor: (Context) -> ConversationRepository = { ConversationRepository(it) }
+    internal var clientFor: (AiProvider) -> AiClient = { it.client }
+    internal var sendSms: (Context, String, String) -> Unit = ::sendReply
+
     suspend fun handle(context: Context, sender: String, body: String) {
         try {
             lock.withLock {
                 val reply = buildReply(context, SenderAllowlist.conversationKey(sender), body)
-                sendReply(context, sender, reply)
+                sendSms(context, sender, reply)
             }
         } catch (e: Exception) {
             // An uncaught exception here would crash the whole process.
@@ -30,7 +36,7 @@ object SmsRelay {
     }
 
     private suspend fun buildReply(context: Context, conversationKey: String, userMessage: String): String {
-        val repository = ConversationRepository(context)
+        val repository = repositoryFor(context)
         if (ConversationHistory.isResetCommand(userMessage)) {
             repository.clear(conversationKey)
             return ConversationHistory.RESET_REPLY
@@ -44,7 +50,7 @@ object SmsRelay {
         repository.forgetInactive(SettingsStore.getIdleTimeoutMinutes(context))
         val turns = ConversationHistory.buildRequest(repository.load(conversationKey), userMessage)
 
-        return provider.client.complete(
+        return clientFor(provider).complete(
             apiKey = apiKey,
             model = SettingsStore.getModel(context, provider),
             systemPrompt = SMS_SYSTEM_PROMPT,

@@ -3,12 +3,16 @@ package com.smsairelay.app
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import javax.crypto.SecretKey
 
 // API keys are encrypted with a Keystore-held AES key (SecretCipher); the other
 // settings aren't secret and stay in plain SharedPreferences.
 object SettingsStore {
 
     private const val TAG = "SettingsStore"
+
+    // Replaced in tests: Robolectric has no Android Keystore.
+    internal var secretKey: () -> SecretKey = { KeystoreSecretKey.get() }
 
     private const val PREFS_NAME = "relay_settings"
     private const val KEY_PROVIDER = "provider"
@@ -39,7 +43,7 @@ object SettingsStore {
     fun getApiKey(context: Context, provider: AiProvider): String? {
         val prefs = prefs(context)
         prefs.getString(encryptedApiKeyPref(provider), null)?.let { encrypted ->
-            val key = SecretCipher.decrypt(KeystoreSecretKey.get(), encrypted)
+            val key = SecretCipher.decrypt(secretKey(), encrypted)
             // Only happens if the Keystore key was lost (e.g. device credential reset);
             // the user has to re-enter the key in Settings.
             if (key == null) Log.w(TAG, "Stored ${provider.name} API key could not be decrypted")
@@ -61,7 +65,7 @@ object SettingsStore {
         } else {
             editor.putString(
                 encryptedApiKeyPref(provider),
-                SecretCipher.encrypt(KeystoreSecretKey.get(), trimmed)
+                SecretCipher.encrypt(secretKey(), trimmed)
             )
         }
         if (provider == AiProvider.CLAUDE) editor.remove(KEY_LEGACY_API_KEY)

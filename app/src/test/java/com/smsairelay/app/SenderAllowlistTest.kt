@@ -40,4 +40,32 @@ class SenderAllowlistTest {
             SenderAllowlist.parse("+1 555 0100\n +1 555 0101 ,\n\n+1 555 0102;")
         )
     }
+
+    @Test
+    fun parseDropsBlankEntries() {
+        assertEquals(emptyList<String>(), SenderAllowlist.parse(" \n,;\n "))
+    }
+
+    @Test
+    fun shortcodeInAllowlistNeverMatchesAnything() {
+        assertFalse(SenderAllowlist.isAllowed("+919876543210", listOf("56161")))
+    }
+
+    // Seven digits is the shortest number treated as a real phone number.
+    @Test
+    fun sevenDigitNumbersMatchButSixDoNot() {
+        assertTrue(SenderAllowlist.isAllowed("555-0100", listOf("5550100")))
+        assertFalse(SenderAllowlist.isAllowed("550100", listOf("550100")))
+    }
+
+    @Test
+    fun conversationKeyUsesTrailingTenDigits() {
+        assertEquals("9876543210", SenderAllowlist.conversationKey("+91 98765 43210"))
+    }
+
+    // Senders that aren't phone numbers still get a stable, distinct key.
+    @Test
+    fun conversationKeyFallsBackToRawSenderForNonNumbers() {
+        assertEquals("VM-HDFCBK", SenderAllowlist.conversationKey("VM-HDFCBK"))
+    }
 }

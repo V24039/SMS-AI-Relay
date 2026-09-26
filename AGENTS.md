@@ -102,9 +102,15 @@ Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered
 
 ## Building and testing
 
-- Build and run from **Android Studio**. Command-line Gradle on the maintainer's machine fails because the default `java` is JDK 25, which Gradle 8.7 can't run on — use Android Studio's configured Gradle JDK.
+- Build and run from **Android Studio**, or from the command line with the Gradle wrapper (`.\gradlew.bat testDebugUnitTest` on Windows, `./gradlew` elsewhere). Gradle isn't installed globally; the wrapper downloads 8.7 itself.
+- Gradle 8.7 can't run on JDK 25, which is the maintainer's default `java` *and* what Android Studio now bundles. Point `JAVA_HOME` at a JDK 17–21 first, e.g. `$env:JAVA_HOME = "$env:USERPROFILE\.jdks\jbr-21.0.11"` in PowerShell. Don't hardcode that path in `gradle.properties`; it's machine-specific.
 - `gradle.properties` forces IPv4 and raises HTTP timeouts because the first Gradle sync timed out downloading the distribution on this network. Keep those lines.
-- Unit tests live in `app/src/test` and cover the pure logic: `ConversationHistory`, `SenderAllowlist`, `SecretCipher` (with a software AES key), and the AI clients' request building and response parsing. Keep new logic in Android-free objects like these so it stays testable on the JVM.
+- Unit tests live in `app/src/test` and run on the JVM (`testDebugUnitTest`):
+  - Pure logic with plain JUnit: `ConversationHistory`, `SenderAllowlist`, `SecretCipher` (software AES key), the AI clients' request building and response parsing, and `AiHttp` / `OpenAiClient` against a local `MockWebServer`.
+  - Android-dependent code with Robolectric (SDK pinned in `src/test/resources/robolectric.properties`): `SettingsStore` including the plaintext-key migration, `ConversationRepository` on in-memory Room, the `SmsRelay` pipeline, `SmsReceiver` (fed real 3GPP PDUs built by `SmsPdu`), `BootReceiver`, `RelayService` and `MainActivity`.
+  - Test seams are `internal var`s swapped in tests and restored in `@After`: `SettingsStore.secretKey` (Robolectric has no Keystore), and `SmsRelay.repositoryFor` / `clientFor` / `sendSms` (no real AI calls or texts). `ConversationRepository` also takes a DAO directly.
+  - Still keep new logic in Android-free objects where possible; it's faster and simpler to test.
+  - Not covered: the receiver's `goAsync()` fallback when a foreground-service start is refused, real Keystore behaviour, and actual SMS delivery. Those need a device.
 - SMS behaviour must be tested on a **real phone with a SIM** — the emulator can receive simulated SMS but can't send real ones. Watch Logcat with the `SmsReceiver` tag.
 - Bump `versionCode`/`versionName` in `app/build.gradle.kts` per phase (currently `0.6.0-phase6`).
 
