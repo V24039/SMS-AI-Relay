@@ -3,9 +3,7 @@ package com.smsairelay.app
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.provider.Telephony
-import android.telephony.SmsManager
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +20,7 @@ class SmsReceiver : BroadcastReceiver() {
         val sender = messages[0].originatingAddress ?: return
         val body = messages.joinToString(separator = "") { it.messageBody ?: "" }
 
-        // Checked before goAsync() so unknown senders (spam, shortcodes, other bots)
+        // Checked before anything else so unknown senders (spam, shortcodes, other bots)
         // never cost an API call or an outgoing SMS. Empty allowlist = reply to nobody.
         if (!SenderAllowlist.isAllowed(sender, SettingsStore.getAllowlist(context))) {
             Log.i(TAG, "Dropped SMS from non-allowlisted sender")
@@ -30,66 +28,23 @@ class SmsReceiver : BroadcastReceiver() {
         }
         if (BuildConfig.DEBUG) Log.d(TAG, "SMS from $sender: $body")
 
-        // The Claude API call is network I/O, so it can't run inline on onReceive's
-        // main thread — goAsync() buys the ~10s window a manifest receiver needs to
-        // hand off to a background coroutine without the OS killing it mid-flight.
+        // Normal path: the foreground service does the work, so a slow AI call
+        // isn't cut off and the process isn't killed mid-flight.
+        if (RelayService.enqueue(context, sender, body)) return
+
+        // Fallback when Android refuses to start the service from the background
+        // (Android 12+ without the battery-optimization exemption): handle it here
+        // within the ~10s goAsync() window, as before Phase 6.
+        Log.w(TAG, "Relay service unavailable; handling SMS in the receiver")
         val pendingResult = goAsync()
         val appContext = context.applicationContext
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val reply = buildReply(appContext, SenderAllowlist.conversationKey(sender), body)
-                sendReply(appContext, sender, reply)
-            } catch (e: Exception) {
-                // An uncaught exception here would crash the whole process.
-                Log.e(TAG, "Failed to handle incoming SMS", e)
+                SmsRelay.handle(appContext, sender, body)
             } finally {
                 pendingResult.finish()
             }
         }
-    }
-
-    private suspend fun buildReply(context: Context, conversationKey: String, userMessage: String): String {
-        val repository = ConversationRepository(context)
-        if (ConversationHistory.isResetCommand(userMessage)) {
-            repository.clear(conversationKey)
-            return ConversationHistory.RESET_REPLY
-        }
-
-        val provider = SettingsStore.getProvider(context)
-        val apiKey = SettingsStore.getApiKey(context, provider)
-            ?: return "SMS AI Relay: no ${provider.displayName} API key set yet. " +
-                "Open the app and add one in Settings."
-
-        repository.forgetInactive(SettingsStore.getIdleTimeoutMinutes(context))
-        val turns = ConversationHistory.buildRequest(repository.load(conversationKey), userMessage)
-
-        return provider.client.complete(
-            apiKey = apiKey,
-            model = SettingsStore.getModel(context, provider),
-            systemPrompt = SMS_SYSTEM_PROMPT,
-            turns = turns
-        ).fold(
-            onSuccess = { reply ->
-                repository.saveExchange(conversationKey, userMessage, reply)
-                reply
-            },
-            onFailure = {
-                Log.e(TAG, "${provider.name} API call failed", it)
-                "Sorry, something went wrong reaching the AI. Try again in a bit."
-            }
-        )
-    }
-
-    private fun sendReply(context: Context, destination: String, text: String) {
-        val smsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getSystemService(SmsManager::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            SmsManager.getDefault()
-        }
-        val parts = smsManager.divideMessage(text)
-        smsManager.sendMultipartTextMessage(destination, null, parts, null, null)
     }
 
     companion object {

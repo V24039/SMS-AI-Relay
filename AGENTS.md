@@ -23,6 +23,7 @@ Sender's phone (SMS only, no data needed)
 Relay device (runs this app, has internet)
    → manifest BroadcastReceiver catches SMS_RECEIVED_ACTION
    → sender checked against allowlist (Settings)
+   → handed to the RelayService foreground service (SmsRelay pipeline)
    → Room DB: load conversation history for that sender number
    → reset policy evaluated (inactivity timeout / keyword / token budget)
    → selected AI provider (Claude / Gemini / Gemma / OpenAI) called with system prompt + history + new message
@@ -37,8 +38,8 @@ No network component other than the outbound HTTPS call to the AI provider. No c
 Items marked *(planned)* describe the target design and are **not built yet**. Don't assume they exist.
 
 - **Language**: Kotlin, min SDK 26, target/compile SDK 34.
-- **Background trigger**: manifest-registered `BroadcastReceiver` for `android.provider.Telephony.SMS_RECEIVED` (exempted from Android 8+ implicit-broadcast background restrictions, so it fires even when the app isn't running). `onReceive()` checks the allowlist first, then calls `goAsync()` and hands off to a coroutine on `Dispatchers.IO` — no blocking work on the receiver's thread.
-- **Processing**: currently the whole pipeline (DB read, API call, DB write, SMS send) runs in that coroutine inside the ~10s `goAsync()` window. *(planned, Phase 6)* Move it into a foreground service with a persistent low-priority notification so it isn't killed mid-flight by Doze/App Standby.
+- **Background trigger**: manifest-registered `BroadcastReceiver` for `android.provider.Telephony.SMS_RECEIVED` (exempted from Android 8+ implicit-broadcast background restrictions, so it fires even when the app isn't running). `onReceive()` checks the allowlist first, then hands the message to `RelayService` — no blocking work on the receiver's thread.
+- **Processing**: the pipeline (DB read, API call, DB write, SMS send) lives in `SmsRelay` and runs one message at a time behind a process-wide `Mutex`. Normally it runs inside `RelayService`, a long-running foreground service (type `specialUse`, `START_STICKY`) with a low-importance ongoing notification. A foreground-service process keeps network access during Doze and isn't killed mid-call. If Android refuses to start the service from the background (Android 12+ without the battery exemption, when the service isn't already running), the receiver falls back to running `SmsRelay` itself inside its ~10s `goAsync()` window.
 - **Persistence**: Room (SQLite), on-device only. No external DB, no sync.
   - One `messages` table keyed by the normalised sender number (`SenderAllowlist.conversationKey`).
   - Last activity is the newest message timestamp and the token estimate is computed at load time, so neither is stored separately.
@@ -46,7 +47,7 @@ Items marked *(planned)* describe the target design and are **not built yet**. D
 - **Settings/secrets**: entered by the user on the Settings screen and stored by `SettingsStore` — provider, per-provider API key and model override, allowlist, idle timeout. Keys are never hardcoded or bundled and only leave the device in the auth header of requests to the selected provider. API keys are AES-256-GCM encrypted (`SecretCipher`) with a non-exportable Android Keystore key before going into `SharedPreferences`; plaintext keys from older versions are encrypted and removed on first read. The other settings aren't secret and stay plain. `EncryptedSharedPreferences` was the original plan but `androidx.security:security-crypto` is deprecated, so this uses the Keystore directly instead. If the Keystore key is ever lost, decryption returns null and the user re-enters the key.
 - **Backup**: `allowBackup="false"` plus `data_extraction_rules.xml` excluding every domain, so keys, allowlist and history never leave the device via cloud backup or device-to-device transfer.
 - **Sending SMS**: `SmsManager.sendMultipartTextMessage()` for replies that exceed one segment.
-- **Reliability** *(planned, Phase 6)*: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` exemption flow, `BOOT_COMPLETED` receiver to re-arm after reboot.
+- **Reliability**: the main screen shows whether battery optimization is off and asks for the exemption (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, direct prompt with a fallback to the system list). The exemption gives network access in Doze and is an allowed reason to start a foreground service from the background on Android 12+. `BootReceiver` restarts the service on `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`, both allowed foreground-service start triggers; `MainActivity` also starts it whenever it's shown with SMS permissions granted. OEM battery managers (Xiaomi, Samsung, etc.) can still kill the app beyond stock Android's rules; that needs per-device user steps, not code. The notification permission (Android 13+) isn't requested; the service runs without it and the notification just isn't shown.
 
 ## Session / context reset policy
 
@@ -93,7 +94,7 @@ Full interactive version: the "Relay Roadmap" artifact from project planning. Su
 3. **Memory** — Room-backed per-sender conversation history, multi-turn context. *Done, verified on device.*
 4. **Knowing When to Forget** — inactivity timeout, keyword reset, token-budget trim. *Built and committed; not yet verified on device.*
 5. **Locking the Door** — sender allowlist *(done)*, encrypted API key storage *(built; not yet verified on device)*.
-6. **Staying Alive** — battery exemption, boot receiver, foreground service hardening. *Not started.*
+6. **Staying Alive** — battery exemption, boot receiver, foreground service hardening. *Built; not yet verified on device.*
 7. **Out the Door** — README, license, CI-built signed release APK, F-Droid metadata. *Not started.*
 8. **Bring Your Own AI** — provider interface with Claude, Gemini, Gemma (Google AI Studio) and OpenAI *done early* (cloud APIs only, no on-device models); next is OpenAI-compatible free providers (Groq, OpenRouter, etc.).
 
@@ -105,17 +106,21 @@ Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered
 - `gradle.properties` forces IPv4 and raises HTTP timeouts because the first Gradle sync timed out downloading the distribution on this network. Keep those lines.
 - Unit tests live in `app/src/test` and cover the pure logic: `ConversationHistory`, `SenderAllowlist`, `SecretCipher` (with a software AES key), and the AI clients' request building and response parsing. Keep new logic in Android-free objects like these so it stays testable on the JVM.
 - SMS behaviour must be tested on a **real phone with a SIM** — the emulator can receive simulated SMS but can't send real ones. Watch Logcat with the `SmsReceiver` tag.
-- Bump `versionCode`/`versionName` in `app/build.gradle.kts` per phase (currently `0.5.0-phase5`).
+- Bump `versionCode`/`versionName` in `app/build.gradle.kts` per phase (currently `0.6.0-phase6`).
 
 ## Key files (`app/src/main/java/com/smsairelay/app/`)
 
-- `SmsReceiver.kt` — entry point: allowlist check, reset keyword, history, AI call, reply.
+- `SmsReceiver.kt` — entry point: allowlist check, then hands off to `RelayService` (or runs `SmsRelay` itself as a fallback).
+- `SmsRelay.kt` — the pipeline: reset keyword, history, AI call, reply SMS.
+- `RelayService.kt` — long-running foreground service that runs `SmsRelay` and keeps the process alive.
+- `BootReceiver.kt` — restarts `RelayService` after reboot or app update.
 - `ConversationHistory.kt` — reset/trim policy (pure) and `ConversationRepository` (Room access).
 - `ChatDatabase.kt` — Room entity, DAO and database.
 - `AiClient.kt` — `AiClient` interface, `AiProvider` enum, shared HTTP helper, SMS system prompt. Providers: `ClaudeClient.kt`, `GeminiClient.kt`, `OpenAiClient.kt`.
 - `SenderAllowlist.kt` — number parsing/matching; also produces the conversation key.
 - `SecretCipher.kt` — AES-GCM encrypt/decrypt for API keys (pure) and `KeystoreSecretKey` (Keystore access).
 - `SettingsStore.kt` / `SettingsActivity.kt` — persisted settings and the Settings screen.
+- `MainActivity.kt` — SMS permission and battery-optimization status; starts `RelayService`.
 
 ## Conventions for future work in this repo
 

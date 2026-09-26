@@ -21,11 +21,27 @@
         android:layout_marginTop="16dp"
         android:text="@string/grant_permissions" />
 
+    <TextView
+        android:id="@+id/batteryText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:text="@string/battery_restricted" />
+
+    <Button
+        android:id="@+id/batteryButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/battery_button" />
+
     <Button
         android:id="@+id/settingsButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="32dp"
         android:text="@string/open_settings" />
 
 </LinearLayout>
