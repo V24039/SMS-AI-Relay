@@ -43,7 +43,7 @@ Items marked *(planned)* describe the target design and are **not built yet**. D
   - One `messages` table keyed by the normalised sender number (`SenderAllowlist.conversationKey`).
   - Last activity is the newest message timestamp and the token estimate is computed at load time, so neither is stored separately.
 - **AI client**: plain OkHttp + `org.json` (bundled with Android), direct HTTPS calls to the provider the user picks in Settings — Claude (Messages API), Gemini or the open-weight Gemma models (both via Google AI Studio's `generateContent`, sharing one key through `AiProvider.keySlot`), or OpenAI (Chat Completions). Each is one `AiClient` implementation (`AiClient.kt`); API key and optional model override are stored per provider. OpenAI uses Chat Completions (not the Responses API) because Groq, OpenRouter, Mistral, Cerebras etc. accept the same shape, so they can be added as `OpenAiClient` instances with a different base URL. Retrofit was considered but dropped — a handful of single endpoints isn't worth the converter/interface machinery.
-- **Settings/secrets**: entered by the user on the Settings screen and stored by `SettingsStore` — provider, per-provider API key and model override, allowlist, idle timeout. Keys are never hardcoded or bundled and only leave the device in the auth header of requests to the selected provider. Currently **plaintext** `SharedPreferences`; *(planned, Phase 5)* move to `EncryptedSharedPreferences` (Android Keystore-backed).
+- **Settings/secrets**: entered by the user on the Settings screen and stored by `SettingsStore` — provider, per-provider API key and model override, allowlist, idle timeout. Keys are never hardcoded or bundled and only leave the device in the auth header of requests to the selected provider. API keys are AES-256-GCM encrypted (`SecretCipher`) with a non-exportable Android Keystore key before going into `SharedPreferences`; plaintext keys from older versions are encrypted and removed on first read. The other settings aren't secret and stay plain. `EncryptedSharedPreferences` was the original plan but `androidx.security:security-crypto` is deprecated, so this uses the Keystore directly instead. If the Keystore key is ever lost, decryption returns null and the user re-enters the key.
 - **Backup**: `allowBackup="false"` plus `data_extraction_rules.xml` excluding every domain, so keys, allowlist and history never leave the device via cloud backup or device-to-device transfer.
 - **Sending SMS**: `SmsManager.sendMultipartTextMessage()` for replies that exceed one segment.
 - **Reliability** *(planned, Phase 6)*: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` exemption flow, `BOOT_COMPLETED` receiver to re-arm after reboot.
@@ -64,7 +64,7 @@ The original pain point this project exists to solve (context window growth + dr
 Even though there's no shared key or multi-tenant abuse surface to worry about, the app is still reachable by SMS from *anyone who has the number* — so:
 
 - **Sender allowlist** (Settings, built) — only phone numbers the owner explicitly adds get a response; everything else is dropped silently before any API call or SMS is spent. An empty allowlist replies to nobody. Numbers match on their last 10 digits, so `+91 98765 43210` and `098765 43210` are the same sender; shortcodes and alphanumeric sender IDs never match. This protects the owner's own API spend and inbox, not other users.
-- API key encrypted at rest *(planned, Phase 5 — currently plaintext)*.
+- API keys encrypted at rest with a Keystore-held key (built). Conversation history and the allowlist are not encrypted; they rely on app-private storage and the backup exclusions.
 - No telemetry, no analytics, no third-party network calls other than the configured AI provider's API.
 
 ## Distribution
@@ -92,7 +92,7 @@ Full interactive version: the "Relay Roadmap" artifact from project planning. Su
 2. **First Real Reply** — wire in the Claude API, single-turn, no memory yet. *Done, verified on device.*
 3. **Memory** — Room-backed per-sender conversation history, multi-turn context. *Done, verified on device.*
 4. **Knowing When to Forget** — inactivity timeout, keyword reset, token-budget trim. *Built and committed; not yet verified on device.*
-5. **Locking the Door** — sender allowlist *(done)*, encrypted API key storage *(not started)*.
+5. **Locking the Door** — sender allowlist *(done)*, encrypted API key storage *(built; not yet verified on device)*.
 6. **Staying Alive** — battery exemption, boot receiver, foreground service hardening. *Not started.*
 7. **Out the Door** — README, license, CI-built signed release APK, F-Droid metadata. *Not started.*
 8. **Bring Your Own AI** — provider interface with Claude, Gemini, Gemma (Google AI Studio) and OpenAI *done early* (cloud APIs only, no on-device models); next is OpenAI-compatible free providers (Groq, OpenRouter, etc.).
@@ -103,9 +103,9 @@ Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered
 
 - Build and run from **Android Studio**. Command-line Gradle on the maintainer's machine fails because the default `java` is JDK 25, which Gradle 8.7 can't run on — use Android Studio's configured Gradle JDK.
 - `gradle.properties` forces IPv4 and raises HTTP timeouts because the first Gradle sync timed out downloading the distribution on this network. Keep those lines.
-- Unit tests live in `app/src/test` and cover the pure logic: `ConversationHistory`, `SenderAllowlist`, and the AI clients' request building and response parsing. Keep new logic in Android-free objects like these so it stays testable on the JVM.
+- Unit tests live in `app/src/test` and cover the pure logic: `ConversationHistory`, `SenderAllowlist`, `SecretCipher` (with a software AES key), and the AI clients' request building and response parsing. Keep new logic in Android-free objects like these so it stays testable on the JVM.
 - SMS behaviour must be tested on a **real phone with a SIM** — the emulator can receive simulated SMS but can't send real ones. Watch Logcat with the `SmsReceiver` tag.
-- Bump `versionCode`/`versionName` in `app/build.gradle.kts` per phase (currently `0.4.0-phase4`).
+- Bump `versionCode`/`versionName` in `app/build.gradle.kts` per phase (currently `0.5.0-phase5`).
 
 ## Key files (`app/src/main/java/com/smsairelay/app/`)
 
@@ -114,6 +114,7 @@ Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered
 - `ChatDatabase.kt` — Room entity, DAO and database.
 - `AiClient.kt` — `AiClient` interface, `AiProvider` enum, shared HTTP helper, SMS system prompt. Providers: `ClaudeClient.kt`, `GeminiClient.kt`, `OpenAiClient.kt`.
 - `SenderAllowlist.kt` — number parsing/matching; also produces the conversation key.
+- `SecretCipher.kt` — AES-GCM encrypt/decrypt for API keys (pure) and `KeystoreSecretKey` (Keystore access).
 - `SettingsStore.kt` / `SettingsActivity.kt` — persisted settings and the Settings screen.
 
 ## Conventions for future work in this repo

@@ -2,9 +2,13 @@ package com.smsairelay.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 
-// Plaintext SharedPreferences for now — Phase 5 moves this to EncryptedSharedPreferences.
+// API keys are encrypted with a Keystore-held AES key (SecretCipher); the other
+// settings aren't secret and stay in plain SharedPreferences.
 object SettingsStore {
+
+    private const val TAG = "SettingsStore"
 
     private const val PREFS_NAME = "relay_settings"
     private const val KEY_PROVIDER = "provider"
@@ -14,7 +18,10 @@ object SettingsStore {
     // Single key from before multi-provider support; it was always a Claude key.
     private const val KEY_LEGACY_API_KEY = "api_key"
 
-    private fun apiKeyPref(provider: AiProvider) = "api_key_${provider.keySlot}"
+    private fun encryptedApiKeyPref(provider: AiProvider) = "enc_api_key_${provider.keySlot}"
+
+    // Where keys were stored in plaintext before Phase 5; only read to migrate them.
+    private fun plaintextApiKeyPref(provider: AiProvider) = "api_key_${provider.keySlot}"
     private fun modelPref(provider: AiProvider) = "model_${provider.name}"
 
     private fun prefs(context: Context): SharedPreferences =
@@ -31,13 +38,32 @@ object SettingsStore {
 
     fun getApiKey(context: Context, provider: AiProvider): String? {
         val prefs = prefs(context)
-        val key = prefs.getString(apiKeyPref(provider), null)
+        prefs.getString(encryptedApiKeyPref(provider), null)?.let { encrypted ->
+            val key = SecretCipher.decrypt(KeystoreSecretKey.get(), encrypted)
+            // Only happens if the Keystore key was lost (e.g. device credential reset);
+            // the user has to re-enter the key in Settings.
+            if (key == null) Log.w(TAG, "Stored ${provider.name} API key could not be decrypted")
+            return key?.takeIf { it.isNotBlank() }
+        }
+
+        // Pre-Phase-5 plaintext key: encrypt it now so it stops sitting on disk in the clear.
+        val plaintext = prefs.getString(plaintextApiKeyPref(provider), null)
             ?: if (provider == AiProvider.CLAUDE) prefs.getString(KEY_LEGACY_API_KEY, null) else null
-        return key?.takeIf { it.isNotBlank() }
+        if (plaintext != null) setApiKey(context, provider, plaintext)
+        return plaintext?.trim()?.takeIf { it.isNotBlank() }
     }
 
     fun setApiKey(context: Context, provider: AiProvider, apiKey: String) {
-        val editor = prefs(context).edit().putString(apiKeyPref(provider), apiKey.trim())
+        val trimmed = apiKey.trim()
+        val editor = prefs(context).edit().remove(plaintextApiKeyPref(provider))
+        if (trimmed.isEmpty()) {
+            editor.remove(encryptedApiKeyPref(provider))
+        } else {
+            editor.putString(
+                encryptedApiKeyPref(provider),
+                SecretCipher.encrypt(KeystoreSecretKey.get(), trimmed)
+            )
+        }
         if (provider == AiProvider.CLAUDE) editor.remove(KEY_LEGACY_API_KEY)
         editor.apply()
     }
