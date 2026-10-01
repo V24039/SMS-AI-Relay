@@ -25,7 +25,7 @@ class SenderAllowlistTest {
     @Test
     fun rejectsShortcodesAndAlphanumericSenders() {
         assertFalse(SenderAllowlist.isAllowed("56161", listOf("56161")))
-        assertFalse(SenderAllowlist.isAllowed("VM-HDFCBK", listOf("VM-HDFCBK")))
+        assertFalse(SenderAllowlist.isAllowed("VM-ABCCBK", listOf("VM-ABCCBK")))
     }
 
     @Test
@@ -66,6 +66,6 @@ class SenderAllowlistTest {
     // Senders that aren't phone numbers still get a stable, distinct key.
     @Test
     fun conversationKeyFallsBackToRawSenderForNonNumbers() {
-        assertEquals("VM-HDFCBK", SenderAllowlist.conversationKey("VM-HDFCBK"))
+        assertEquals("VM-ABCCBK", SenderAllowlist.conversationKey("VM-ABCCBK"))
     }
 }
