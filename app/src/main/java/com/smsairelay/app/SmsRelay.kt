@@ -4,6 +4,11 @@ import android.content.Context
 import android.os.Build
 import android.telephony.SmsManager
 import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -23,16 +28,56 @@ object SmsRelay {
     internal var clientFor: (AiProvider) -> AiClient = { it.client }
     internal var sendSms: (Context, String, String) -> Unit = ::sendReply
 
+    // Pause between pieces of a long reply: gives the sender time to text STOP, and
+    // keeps the pieces arriving in order.
+    internal var chunkDelayMs = 4_000L
+
+    // Messages of each sender that are queued, being answered or being sent. A stop
+    // command cancels them; it never takes `lock`, since the send loop holds it.
+    private val inFlight = mutableListOf<Pair<String, Job>>()
+
     suspend fun handle(context: Context, sender: String, body: String) {
+        val key = SenderAllowlist.conversationKey(sender)
+        var registered: Pair<String, Job>? = null
         try {
-            lock.withLock {
-                val reply = buildReply(context, SenderAllowlist.conversationKey(sender), body)
-                sendSms(context, sender, reply)
+            if (ConversationHistory.isStopCommand(body)) {
+                val stopped = cancelInFlight(key)
+                sendSms(
+                    context,
+                    sender,
+                    if (stopped) ConversationHistory.STOP_REPLY else ConversationHistory.NOTHING_TO_STOP_REPLY
+                )
+                return
             }
+            currentCoroutineContext()[Job]?.let { job ->
+                registered = key to job
+                synchronized(inFlight) { inFlight += key to job }
+            }
+            lock.withLock {
+                val reply = buildReply(context, key, body)
+                val chunks = ConversationHistory.splitForSms(reply)
+                chunks.forEachIndexed { i, chunk ->
+                    if (i > 0) delay(chunkDelayMs)
+                    currentCoroutineContext().ensureActive()
+                    sendSms(context, sender, chunk)
+                }
+            }
+        } catch (e: CancellationException) {
+            Log.i(TAG, "Reply stopped by the sender")
+            throw e
         } catch (e: Exception) {
             // An uncaught exception here would crash the whole process.
             Log.e(TAG, "Failed to handle incoming SMS", e)
+        } finally {
+            registered?.let { entry -> synchronized(inFlight) { inFlight.remove(entry) } }
         }
+    }
+
+    // True if anything was queued, being answered or being sent for this sender.
+    private fun cancelInFlight(key: String): Boolean {
+        val jobs = synchronized(inFlight) { inFlight.filter { it.first == key }.map { it.second } }
+        jobs.forEach { it.cancel() }
+        return jobs.isNotEmpty()
     }
 
     private suspend fun buildReply(context: Context, conversationKey: String, userMessage: String): String {

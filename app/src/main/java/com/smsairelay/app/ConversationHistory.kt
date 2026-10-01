@@ -21,6 +21,30 @@ object ConversationHistory {
 
     fun isResetCommand(text: String): Boolean = text.trim().lowercase() in RESET_COMMANDS
 
+    const val STOP_REPLY = "Stopped."
+    const val NOTHING_TO_STOP_REPLY = "Nothing to stop."
+
+    private val STOP_COMMANDS = setOf("/stop", "stop")
+
+    fun isStopCommand(text: String): Boolean = text.trim().lowercase() in STOP_COMMANDS
+
+    // Roughly three concatenated SMS segments (3 x 153 GSM-7 characters).
+    const val SMS_CHUNK_CHARS = 450
+
+    // Cuts a long reply into pieces that are sent one after another, so the sender can
+    // stop the rest part-way. Prefers to break at whitespace; short text comes back whole.
+    fun splitForSms(text: String, maxChars: Int = SMS_CHUNK_CHARS): List<String> {
+        val chunks = mutableListOf<String>()
+        var rest = text.trim()
+        while (rest.length > maxChars) {
+            val breakAt = rest.lastIndexOf(' ', maxChars).takeIf { it > maxChars / 2 } ?: maxChars
+            chunks += rest.substring(0, breakAt).trimEnd()
+            rest = rest.substring(breakAt).trimStart()
+        }
+        if (rest.isNotEmpty() || chunks.isEmpty()) chunks += rest
+        return chunks
+    }
+
     // Blank, zero, negative or non-numeric input falls back to the default.
     fun parseIdleTimeoutMinutes(raw: String): Int =
         raw.trim().toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_IDLE_TIMEOUT_MINUTES

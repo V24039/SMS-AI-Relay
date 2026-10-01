@@ -50,6 +50,9 @@ Relay phone (this app, on Wi-Fi or data)
 - Conversation memory per sender, so follow-up questions work.
 - Text `/new` or `RESET` to start a fresh conversation. Conversations also reset after
   45 idle minutes (configurable), and only recent history is sent to keep requests small.
+- Long replies are sent a few messages at a time, with a short pause between them. Text
+  `/stop` or `STOP` to cancel the rest (and any question still being answered), which
+  saves SMS if your plan has a message limit.
 - **Sender allowlist**: only numbers you add get a reply. Everyone else is ignored before
   any API call or SMS is spent. An empty list replies to nobody.
 - API keys are encrypted with a key held in the Android Keystore.

@@ -6,9 +6,13 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.IOException
 import javax.crypto.KeyGenerator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -77,6 +81,7 @@ class SmsRelayTest {
         SmsRelay.clientFor = originals[1] as (AiProvider) -> AiClient
         SmsRelay.sendSms = originals[2] as (Context, String, String) -> Unit
         SettingsStore.secretKey = originals[3] as () -> javax.crypto.SecretKey
+        SmsRelay.chunkDelayMs = 4_000L
         db.close()
     }
 
@@ -176,6 +181,41 @@ class SmsRelayTest {
             2,
             runBlocking { repository.load(SenderAllowlist.conversationKey("+1 555 010 0100")) }.size
         )
+    }
+
+    // --- Stop command and chunked replies ---
+
+    private val longReply = "word ".repeat(400).trim()
+
+    @Test
+    fun stopWithNothingRunningRepliesWithoutCallingTheAi() {
+        handle(" /Stop ")
+        assertTrue(client.calls.isEmpty())
+        assertEquals(ConversationHistory.NOTHING_TO_STOP_REPLY, outbox.single().second)
+    }
+
+    @Test
+    fun longReplyIsSentInSeveralTexts() {
+        SmsRelay.chunkDelayMs = 0
+        client.nextResult = { Result.success(longReply) }
+        handle("hi")
+
+        assertTrue(outbox.size > 1)
+        assertEquals(longReply, outbox.joinToString(" ") { it.second })
+    }
+
+    @Test
+    fun stopCancelsTheRestOfALongReply() = runBlocking {
+        SmsRelay.chunkDelayMs = 60_000
+        client.nextResult = { Result.success(longReply) }
+
+        val job = launch(Dispatchers.Default) { SmsRelay.handle(context, sender, "hi") }
+        withTimeout(10_000) { while (synchronized(outbox) { outbox.isEmpty() }) delay(10) }
+        SmsRelay.handle(context, sender, "STOP")
+        withTimeout(10_000) { job.join() }
+
+        assertEquals(2, outbox.size)
+        assertEquals(ConversationHistory.STOP_REPLY, outbox.last().second)
     }
 
     // --- Failures ---

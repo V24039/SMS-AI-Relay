@@ -61,6 +61,32 @@ class ConversationHistoryTest {
     }
 
     @Test
+    fun stopCommandMatchesOnlyTheWholeMessage() {
+        assertTrue(ConversationHistory.isStopCommand("STOP"))
+        assertTrue(ConversationHistory.isStopCommand(" /stop "))
+        assertFalse(ConversationHistory.isStopCommand("stop the car"))
+        assertFalse(ConversationHistory.isStopCommand(""))
+    }
+
+    @Test
+    fun splitForSmsKeepsShortTextWhole() {
+        assertEquals(listOf("hello"), ConversationHistory.splitForSms("hello"))
+        assertEquals(listOf(""), ConversationHistory.splitForSms(""))
+    }
+
+    @Test
+    fun splitForSmsBreaksAtWordsWithinTheLimit() {
+        val chunks = ConversationHistory.splitForSms("alpha beta gamma delta", maxChars = 11)
+        assertEquals(listOf("alpha beta", "gamma delta"), chunks)
+    }
+
+    @Test
+    fun splitForSmsHardCutsTextWithoutSpaces() {
+        val chunks = ConversationHistory.splitForSms("x".repeat(25), maxChars = 10)
+        assertEquals(listOf(10, 10, 5), chunks.map { it.length })
+    }
+
+    @Test
     fun invalidIdleTimeoutFallsBackToDefault() {
         val default = ConversationHistory.DEFAULT_IDLE_TIMEOUT_MINUTES
         assertEquals(30, ConversationHistory.parseIdleTimeoutMinutes(" 30 "))
