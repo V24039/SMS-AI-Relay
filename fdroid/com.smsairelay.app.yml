@@ -1,25 +1,25 @@
 # DRAFT of the F-Droid build recipe. It isn't used from this repo: copy it to
 # metadata/com.smsairelay.app.yml in https://gitlab.com/fdroid/fdroiddata and open a
-# merge request. Replace OWNER, and check the fields against the current F-Droid
+# merge request. Check the fields against the current F-Droid
 # docs (https://f-droid.org/docs/Build_Metadata_Reference/) first.
 
 Categories:
   - Connectivity
 License: GPL-3.0-only
-SourceCode: https://github.com/OWNER/sms-ai-relay
-IssueTracker: https://github.com/OWNER/sms-ai-relay/issues
-Changelog: https://github.com/OWNER/sms-ai-relay/releases
+SourceCode: https://github.com/V24039/SMS-AI-Relay
+IssueTracker: https://github.com/V24039/SMS-AI-Relay/issues
+Changelog: https://github.com/V24039/SMS-AI-Relay/releases
 
 # The app sends messages to the AI provider the user configures, which are
 # proprietary network services.
 AntiFeatures:
   NonFreeNet:
-    en-US: Sends your messages to the AI provider you configure (Anthropic, Google or OpenAI).
+    en-US: Sends your messages to the AI provider you configure (e.g. Anthropic, Google, OpenAI, Groq, Mistral).
 
 AutoName: SMS AI Relay
 
 RepoType: git
-Repo: https://github.com/OWNER/sms-ai-relay.git
+Repo: https://github.com/V24039/SMS-AI-Relay.git
 
 Builds:
   - versionName: 0.7.0

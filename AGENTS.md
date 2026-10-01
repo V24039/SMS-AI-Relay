@@ -101,7 +101,7 @@ Full interactive version: the "Relay Roadmap" artifact from project planning. Su
 4. **Knowing When to Forget** — inactivity timeout, keyword reset, token-budget trim. *Built and committed; not yet verified on device.*
 5. **Locking the Door** — sender allowlist *(done)*, encrypted API key storage *(built; not yet verified on device)*.
 6. **Staying Alive** — battery exemption, boot receiver, foreground service hardening. *Built; not yet verified on device.*
-7. **Out the Door** — README (with the AI-generated disclosure), GPL-3.0 license, CI tests on every push, signed release APK built by CI on `v*` tags, F-Droid store metadata and a draft fdroiddata recipe. *Built; the signing key and GitHub secrets still have to be set up by the maintainer (see `RELEASING.md`), and the repo URL is a placeholder `OWNER/sms-ai-relay` until the GitHub repo exists.*
+7. **Out the Door** — README (with the AI-generated disclosure), GPL-3.0 license, CI tests on every push, signed release APK built by CI on `v*` tags, F-Droid store metadata and a draft fdroiddata recipe. *Built; the signing key and GitHub secrets still have to be set up by the maintainer (see `RELEASING.md`). Repo: https://github.com/V24039/SMS-AI-Relay.*
 8. **Bring Your Own AI** — provider interface with Claude, Gemini, Gemma (Google AI Studio) and OpenAI, plus the OpenAI-compatible providers with free tiers: Groq, Cerebras, Mistral and OpenRouter. Cloud APIs only, no on-device models. *Built; the new providers not yet tried with real keys.* A possible next step is a user-configured custom OpenAI-compatible endpoint (base URL in Settings), e.g. for Ollama on the home network.
 
 Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered; the rest of Phase 8 is fair game any time.

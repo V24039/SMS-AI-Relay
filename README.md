@@ -66,7 +66,7 @@ Relay phone (this app, on Wi-Fi or data)
 **Not on the Google Play Store, and it won't be.** Play only allows the SMS permissions
 this app needs for apps that are the phone's default SMS app, and this isn't one.
 
-1. Download the latest APK from the [Releases](https://github.com/OWNER/sms-ai-relay/releases) page.
+1. Download the latest APK from the [Releases](https://github.com/V24039/SMS-AI-Relay/releases) page.
 2. Open it on the relay phone and allow "install unknown apps" for your browser or file
    manager when asked.
 
