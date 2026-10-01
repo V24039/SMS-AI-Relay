@@ -1,0 +1,1 @@
+Ask an AI by plain SMS: a spare Android phone answers using your own API key

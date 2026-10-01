@@ -1,8 +1,22 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
+    jacoco
 }
+
+// Release signing comes from keystore.properties (local, gitignored) or RELEASE_* env
+// vars (CI). With neither, release builds are unsigned, which is what F-Droid expects:
+// it builds from source and signs with its own key.
+val keystoreProps = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun signingValue(prop: String, env: String): String? =
+    keystoreProps.getProperty(prop) ?: System.getenv(env)
 
 android {
     namespace = "com.smsairelay.app"
@@ -12,14 +26,39 @@ android {
         applicationId = "com.smsairelay.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.6.0-phase6"
+        versionCode = 7
+        versionName = "0.7.0"
+    }
+
+    signingConfigs {
+        val storePath = signingValue("storeFile", "RELEASE_KEYSTORE_PATH")
+        if (storePath != null) {
+            create("release") {
+                storeFile = rootProject.file(storePath)
+                storePassword = signingValue("storePassword", "RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "RELEASE_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            // Line coverage for unit tests: createDebugUnitTestCoverageReport writes the
+            // JaCoCo XML that CI's diff-coverage check reads.
+            enableUnitTestCoverage = true
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
+    }
+
+    // Google's dependency-metadata block is encrypted with Google's key; F-Droid rejects
+    // APKs carrying it, and nobody else reads it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     compileOptions {
@@ -34,6 +73,11 @@ android {
     testOptions {
         // Robolectric needs merged resources and the manifest to inflate views and resolve strings.
         unitTests.isIncludeAndroidResources = true
+    }
+
+    testCoverage {
+        // Default JaCoCo is too old for JDK 21 class files.
+        jacocoVersion = "0.8.12"
     }
 
     buildFeatures {
@@ -65,6 +109,12 @@ dependencies {
 
 // Print each test and a summary; Gradle is silent about test results by default.
 tasks.withType<Test>().configureEach {
+    // Robolectric loads app classes through its own class loader; without this their
+    // lines would count as uncovered even when Robolectric tests run them.
+    extensions.configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

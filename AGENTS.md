@@ -73,6 +73,11 @@ Even though there's no shared key or multi-tenant abuse surface to worry about, 
 `RECEIVE_SMS` / `SEND_SMS` are restricted permissions under Google Play policy (generally Play-approved only for declared default-SMS-handler apps). This project is **not** going to become a full default SMS app, so:
 
 - Ship via **GitHub Releases** (signed APK) and optionally **F-Droid**.
+- **License**: GPL-3.0-only (`LICENSE`).
+- **Disclosure**: the README states that the project was entirely AI-generated (code and tests) and that only on-device testing was done by a human. Keep that notice accurate if this changes.
+- **Release signing**: `app/build.gradle.kts` reads the key from gitignored `keystore.properties` or `RELEASE_*` env vars (CI); with neither, release builds are unsigned, which is what F-Droid wants since it signs with its own key. `dependenciesInfo` is disabled because F-Droid rejects Google's encrypted dependency-metadata block.
+- **CI**: `.github/workflows/ci.yml` runs tests and a debug build on pushes and PRs; `release.yml` runs on `v*` tags, checks the tag matches `versionName`, and publishes the signed APK plus SHA-256 to GitHub Releases.
+- **F-Droid**: store text lives in `fastlane/metadata/android/en-US/` (a changelog per versionCode). `fdroid/com.smsairelay.app.yml` is a draft for the fdroiddata merge request, not used by this repo. It declares the `NonFreeNet` anti-feature because the app talks to proprietary AI APIs.
 - README must say explicitly: sideload / "install from unknown sources," this will not be on the Play Store, and explain why.
 
 ## Prior art (why this project, not an existing one)
@@ -95,7 +100,7 @@ Full interactive version: the "Relay Roadmap" artifact from project planning. Su
 4. **Knowing When to Forget** — inactivity timeout, keyword reset, token-budget trim. *Built and committed; not yet verified on device.*
 5. **Locking the Door** — sender allowlist *(done)*, encrypted API key storage *(built; not yet verified on device)*.
 6. **Staying Alive** — battery exemption, boot receiver, foreground service hardening. *Built; not yet verified on device.*
-7. **Out the Door** — README, license, CI-built signed release APK, F-Droid metadata. *Not started.*
+7. **Out the Door** — README (with the AI-generated disclosure), GPL-3.0 license, CI tests on every push, signed release APK built by CI on `v*` tags, F-Droid store metadata and a draft fdroiddata recipe. *Built; the signing key and GitHub secrets still have to be set up by the maintainer (see `RELEASING.md`), and the repo URL is a placeholder `OWNER/sms-ai-relay` until the GitHub repo exists.*
 8. **Bring Your Own AI** — provider interface with Claude, Gemini, Gemma (Google AI Studio) and OpenAI *done early* (cloud APIs only, no on-device models); next is OpenAI-compatible free providers (Groq, OpenRouter, etc.).
 
 Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered; the rest of Phase 8 is fair game any time.
@@ -111,8 +116,9 @@ Phases 1–4 are sequential (each depends on the last); 5 and 6 can be reordered
   - Test seams are `internal var`s swapped in tests and restored in `@After`: `SettingsStore.secretKey` (Robolectric has no Keystore), and `SmsRelay.repositoryFor` / `clientFor` / `sendSms` (no real AI calls or texts). `ConversationRepository` also takes a DAO directly.
   - Still keep new logic in Android-free objects where possible; it's faster and simpler to test.
   - Not covered: the receiver's `goAsync()` fallback when a foreground-service start is refused, real Keystore behaviour, and actual SMS delivery. Those need a device.
+  - **New code must be tested**: CI fails a PR when under 80% of the `app/src/main` lines it adds or changes are covered (JaCoCo, via `enableUnitTestCoverage` on the debug build, checked by `diff-cover` against the base branch). Robolectric-run code counts because the test task sets `isIncludeNoLocationClasses`. The `coverage-exempt` label skips the check for code that can't be unit-tested. Coverage report: `./gradlew createDebugUnitTestCoverageReport` → `app/build/reports/coverage/test/debug/`. Merge blocking itself depends on GitHub branch protection requiring the `test` check (see `RELEASING.md`).
 - SMS behaviour must be tested on a **real phone with a SIM** — the emulator can receive simulated SMS but can't send real ones. Watch Logcat with the `SmsReceiver` tag.
-- Bump `versionCode`/`versionName` in `app/build.gradle.kts` per phase (currently `0.6.0-phase6`).
+- Versions are plain semver from 0.7.0 on (currently `0.7.0`, versionCode 7); the `-phaseN` suffix is gone now that builds are public. The release process (version bump, F-Droid changelog, tag) is in `RELEASING.md`.
 
 ## Key files (`app/src/main/java/com/smsairelay/app/`)
 

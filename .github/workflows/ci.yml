@@ -1,0 +1,70 @@
+name: CI
+
+# Runs the unit tests and builds a debug APK on every push and pull request. On pull
+# requests it also fails if the new or changed app code isn't covered by tests.
+# To actually block merging, mark the "test" check as required in the branch
+# protection rules (see RELEASING.md).
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    # labeled/unlabeled so adding or removing the coverage-exempt label re-runs the check.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, so diff-cover can diff against the PR's base branch.
+          fetch-depth: 0
+
+      # Gradle 8.7 can't run on JDK 22+.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests with coverage
+        run: ./gradlew createDebugUnitTestCoverageReport
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      # At least 80% of the lines a PR adds or changes under app/src/main must be run
+      # by a test. Measures lines, not files, so touching a test file alone won't pass.
+      # A maintainer can add the "coverage-exempt" label for code that genuinely can't
+      # be unit-tested (e.g. real Keystore or SMS sending); contributors can't add labels.
+      - name: Diff coverage (new code must be tested)
+        if: >-
+          github.event_name == 'pull_request' &&
+          !contains(github.event.pull_request.labels.*.name, 'coverage-exempt')
+        run: |
+          pip install --quiet "diff-cover>=10,<11"
+          diff-cover app/build/reports/coverage/test/debug/report.xml \
+            --compare-branch="origin/${{ github.base_ref }}" \
+            --src-roots app/src/main/java \
+            --fail-under=80 \
+            --format markdown:diff-coverage.md
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+      - name: Coverage summary
+        if: always() && hashFiles('diff-coverage.md') != ''
+        run: cat diff-coverage.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/coverage/
+            diff-coverage.md
