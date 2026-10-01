@@ -1,1 +1,1 @@
-First public release: SMS replies from Claude, Gemini, Gemma or OpenAI; per-sender memory with /new reset and idle timeout; sender allowlist; Keystore-encrypted API keys; foreground service that survives Doze and reboots.
+First public release: SMS replies from Claude, Gemini, Gemma, OpenAI, Groq, Cerebras, Mistral or OpenRouter; per-sender memory with /new reset and idle timeout; sender allowlist; Keystore-encrypted API keys; foreground service that survives Doze and reboots.

@@ -44,7 +44,11 @@ enum class AiProvider(
     CLAUDE("Claude (Anthropic)", "sk-ant-…", ClaudeClient, "CLAUDE"),
     GEMINI("Gemini (Google AI Studio)", "AIza…", GeminiClient.GEMINI, "GEMINI"),
     GEMMA("Gemma open model (Google AI Studio)", "AIza…", GeminiClient.GEMMA, "GEMINI"),
-    OPENAI("OpenAI", "sk-…", OpenAiClient.OPENAI, "OPENAI");
+    OPENAI("OpenAI", "sk-…", OpenAiClient.OPENAI, "OPENAI"),
+    GROQ("Groq (free tier)", "gsk_…", OpenAiClient.GROQ, "GROQ"),
+    CEREBRAS("Cerebras (free trial)", "csk-…", OpenAiClient.CEREBRAS, "CEREBRAS"),
+    MISTRAL("Mistral", "Mistral API key", OpenAiClient.MISTRAL, "MISTRAL"),
+    OPENROUTER("OpenRouter (free models)", "sk-or-…", OpenAiClient.OPENROUTER, "OPENROUTER");
 
     override fun toString() = displayName
 }

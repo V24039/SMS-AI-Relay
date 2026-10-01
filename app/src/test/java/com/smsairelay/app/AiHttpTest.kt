@@ -111,4 +111,28 @@ class AiHttpTest {
         assertTrue(result.isFailure)
         assertFalse(result.exceptionOrNull() is IOException)
     }
+
+    @Test
+    fun compatibleClientUsesItsBaseUrlAndTokenField() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"choices":[{"message":{"content":"<think>hmm</think>Bonjour."}}]}"""
+            )
+        )
+        val mistralStyle = OpenAiClient(
+            baseUrl = server.url("/v1").toString(),
+            defaultModel = "small",
+            maxTokensField = "max_tokens",
+            providerName = "Test"
+        )
+
+        val result = mistralStyle.complete("key", "small", "sys", listOf(ChatTurn(ChatTurn.Role.USER, "hi")))
+
+        assertEquals("Bonjour.", result.getOrThrow())
+        val request = server.takeRequest()
+        assertEquals("/v1/chat/completions", request.path)
+        val body = JSONObject(request.body.readUtf8())
+        assertTrue(body.has("max_tokens"))
+        assertFalse(body.has("max_completion_tokens"))
+    }
 }

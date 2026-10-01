@@ -14,7 +14,7 @@ and texts the answer back.
 Your phone (SMS only, no data)
    → ordinary SMS →
 Relay phone (this app, on Wi-Fi or data)
-   → Claude / Gemini / Gemma / OpenAI, with your own key
+   → Claude / Gemini / OpenAI / Groq / … with your own key
    → reply sent back by SMS
 ```
 
@@ -34,14 +34,19 @@ Relay phone (this app, on Wi-Fi or data)
   and connected to the internet. It stays at home as the relay.
 - **An API key** from [Anthropic](https://console.anthropic.com/) (Claude),
   [Google AI Studio](https://aistudio.google.com/) (Gemini and Gemma) or
-  [OpenAI](https://platform.openai.com/). The provider bills you for usage.
+  [OpenAI](https://platform.openai.com/), which bill you for usage, or from a provider
+  with a free tier: [Groq](https://console.groq.com/), [Cerebras](https://cloud.cerebras.ai/),
+  [Mistral](https://console.mistral.ai/) or [OpenRouter](https://openrouter.ai/) (its free
+  models). Free tiers have rate limits that change over time; check the provider's page.
 - **An SMS plan on the relay SIM.** Every reply is sent from it, and a long answer is
   split into several texts. Some prepaid plans limit SMS per day (often around 100 in
   India), and carriers may flag heavy automated texting.
 
 ## Features
 
-- Claude, Gemini, Gemma or OpenAI; switch any time in Settings, with an optional model override.
+- Eight providers: Claude, Gemini, Gemma, OpenAI, Groq, Cerebras, Mistral and OpenRouter
+  (its free router picks a currently free model for each request). Switch any time in
+  Settings, with an optional model override.
 - Conversation memory per sender, so follow-up questions work.
 - Text `/new` or `RESET` to start a fresh conversation. Conversations also reset after
   45 idle minutes (configurable), and only recent history is sent to keep requests small.
@@ -114,8 +119,8 @@ reviewed this code yet. Useful contributions:
 - **Code review**, especially of background execution, permissions and key storage.
 - **Testing on different phones and Android versions**, and reporting what breaks.
 - **Co-maintainers** who can review pull requests.
-- More providers. OpenAI-compatible ones (Groq, OpenRouter, Mistral, …) should only
-  need a new `OpenAiClient` instance with a different base URL.
+- More providers. OpenAI-compatible ones (Together, DeepSeek, …) only need a new
+  `OpenAiClient` instance with a different base URL and a new `AiProvider` entry.
 
 Please open an issue before large changes. CI runs the unit tests on every pull request,
 and **new code needs tests**: a PR fails if under 80% of the app lines it adds or

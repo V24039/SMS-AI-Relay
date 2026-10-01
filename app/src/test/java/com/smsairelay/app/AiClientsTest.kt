@@ -140,4 +140,86 @@ class AiClientsTest {
             assertTrue(e.message!!.contains("length"))
         }
     }
+
+    // --- OpenAI-compatible providers ---
+
+    private fun reply(content: String) =
+        """{"choices":[{"message":{"role":"assistant","content":${org.json.JSONObject.quote(content)}},"finish_reason":"stop"}]}"""
+
+    @Test
+    fun mistralSendsMaxTokensInsteadOfMaxCompletionTokens() {
+        val body = OpenAiClient.MISTRAL.buildBody(OpenAiClient.MISTRAL.defaultModel, "sys", turns)
+        assertTrue(body.has("max_tokens"))
+        assertFalse(body.has("max_completion_tokens"))
+    }
+
+    @Test
+    fun groqCerebrasAndOpenRouterSendMaxCompletionTokens() {
+        listOf(OpenAiClient.GROQ, OpenAiClient.CEREBRAS, OpenAiClient.OPENROUTER).forEach {
+            val body = it.buildBody(it.defaultModel, "sys", turns)
+            assertTrue(body.has("max_completion_tokens"))
+            assertFalse(body.has("max_tokens"))
+        }
+    }
+
+    @Test
+    fun onlyCerebrasDefaultModelGetsReasoningEffort() {
+        val cerebras = OpenAiClient.CEREBRAS
+        assertEquals("low", cerebras.buildBody(cerebras.defaultModel, "sys", turns).getString("reasoning_effort"))
+        assertFalse(cerebras.buildBody("qwen-3.8-27b", "sys", turns).has("reasoning_effort"))
+        listOf(OpenAiClient.GROQ, OpenAiClient.MISTRAL, OpenAiClient.OPENROUTER).forEach {
+            assertFalse(it.buildBody(it.defaultModel, "sys", turns).has("reasoning_effort"))
+        }
+    }
+
+    @Test
+    fun parseStripsThinkBlocks() {
+        assertEquals(
+            "Paris.",
+            OpenAiClient.GROQ.parseReply(reply("<think>\nThe capital of France...\n</think>\n\nParis."))
+        )
+    }
+
+    @Test
+    fun parseStripsSeveralThinkBlocksAnywhere() {
+        assertEquals(
+            "A B",
+            OpenAiClient.OPENROUTER.parseReply(reply("<think>x</think>A <think>y\nz</think>B"))
+        )
+    }
+
+    // Cut off by the token limit while still reasoning: there's no answer to send.
+    @Test
+    fun unclosedThinkBlockMeansNoAnswer() {
+        try {
+            OpenAiClient.OPENROUTER.parseReply(reply("<think>still reasoning when the limit hit"))
+            throw AssertionError("expected JSONException")
+        } catch (e: JSONException) {
+            assertTrue(e.message!!.contains("OpenRouter"))
+        }
+    }
+
+    @Test
+    fun textWithoutThinkTagsIsUntouched() {
+        assertEquals("a < b and c > d", OpenAiClient.MISTRAL.stripThinking("  a < b and c > d "))
+    }
+
+    @Test
+    fun errorsNameTheProvider() {
+        try {
+            OpenAiClient.MISTRAL.parseReply("""{"choices":[]}""")
+            throw AssertionError("expected JSONException")
+        } catch (e: JSONException) {
+            assertEquals("Mistral response had no choices", e.message)
+        }
+    }
+
+    @Test
+    fun compatibleProvidersUseOpenAiClientAndTheirOwnKeySlot() {
+        val compatible = listOf(AiProvider.GROQ, AiProvider.CEREBRAS, AiProvider.MISTRAL, AiProvider.OPENROUTER)
+        compatible.forEach { assertTrue(it.client is OpenAiClient) }
+        // Only Gemini and Gemma share a key; every other provider has its own.
+        val slots = AiProvider.entries.map { it.keySlot }
+        assertEquals(slots.size - 1, slots.toSet().size)
+    }
 }

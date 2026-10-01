@@ -4,7 +4,7 @@ Leave the relay phone at home on Wi-Fi. Text its number from anywhere SMS works 
 
 <b>Features</b>
 <ul>
-<li>Claude, Gemini, Gemma or OpenAI, using your own API key</li>
+<li>Claude, Gemini, Gemma, OpenAI, Groq, Cerebras, Mistral or OpenRouter, using your own API key; several have free tiers</li>
 <li>Remembers the conversation per sender; text /new or RESET to start over, and idle conversations reset automatically</li>
 <li>Only replies to numbers on your allowlist; everyone else is ignored before any API call or SMS is spent</li>
 <li>API keys encrypted with the Android Keystore</li>
