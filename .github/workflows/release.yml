@@ -1,7 +1,9 @@
 name: Release
 
 # Pushing a tag like v0.7.0 runs the tests, builds a signed release APK and publishes
-# it as a GitHub Release. Needs these repository secrets (see RELEASING.md):
+# it as a GitHub Release. The job runs in the "release" environment, which must exist
+# with a required reviewer, so nothing is signed or published until a maintainer
+# approves the run. The signing secrets live in that environment (see RELEASING.md):
 #   RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
 on:
   push:
@@ -13,6 +15,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Pauses for approval before the job starts; only then does it get the
+    # environment's secrets. If the environment doesn't exist, GitHub creates it
+    # without any reviewers and the release runs unapproved, so set it up first.
+    environment: release
     steps:
       - uses: actions/checkout@v4
 

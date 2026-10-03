@@ -18,7 +18,23 @@ settings and history) to upgrade. Back the key up somewhere safe, e.g. a passwor
 
    `release.jks` is gitignored (`*.jks`). Keep it outside the repo folder if you prefer.
 
-2. Add four repository secrets on GitHub (Settings → Secrets and variables → Actions):
+2. Create the **`release` environment**, which makes every release wait for your
+   approval before the key is used. In the repository's **Settings → Environments →
+   New environment**, name it `release` (exactly), then:
+
+   - **Required reviewers**: tick it and add yourself (and any co-maintainer allowed
+     to approve releases). Leave **Prevent self-review** off while you're the only
+     reviewer, or you couldn't approve your own releases.
+   - **Deployment branches and tags**: choose **Selected branches and tags** and add a
+     **tag** rule `v*`, so only release tags can ever use the key.
+
+   Create the environment *before* the first release: if the workflow runs first,
+   GitHub creates `release` automatically with no reviewers, and the release goes
+   through unapproved.
+
+3. Add four **environment secrets** to `release` (on the same page, under
+   **Environment secrets → Add environment secret**). Don't add them as repository
+   secrets: those are readable by any workflow without approval.
 
    | Secret | Value |
    |---|---|
@@ -35,7 +51,7 @@ settings and history) to upgrade. Back the key up somewhere safe, e.g. a passwor
 
    On Linux/macOS: `base64 -w0 release.jks` (macOS: `base64 -i release.jks`).
 
-3. Optional, for signed builds on your own machine: create `keystore.properties` in the
+4. Optional, for signed builds on your own machine: create `keystore.properties` in the
    project root (gitignored):
 
    ```properties
@@ -57,7 +73,11 @@ settings and history) to upgrade. Back the key up somewhere safe, e.g. a passwor
    git push origin v0.7.0
    ```
 
-The workflow checks that the tag matches `versionName`, runs the tests, builds and signs
+4. Approve it: in the **Actions** tab, open the Release run, click **Review deployments**,
+   tick `release` and **Approve and deploy**. GitHub also emails the reviewers. Until
+   someone approves, the run waits (for up to 30 days) and nothing is signed or published.
+
+The workflow then checks that the tag matches `versionName`, runs the tests, builds and signs
 the APK, verifies the signature, and publishes a GitHub Release with the APK and its
 SHA-256 checksum.
 
