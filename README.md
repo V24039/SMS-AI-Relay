@@ -77,6 +77,70 @@ Google has announced developer verification requirements for apps installed from
 the Play Store, rolling out from 2026. Depending on your country and Android version,
 installing may need extra steps. Check the current status if the install is blocked.
 
+### If Play Protect blocks the install
+
+In **India, Singapore, Thailand and Brazil**, Play Protect blocks installing any app that
+receives SMS when the APK comes from a browser, messaging app or file manager. It shows a
+message like *"App blocked to protect your device"* with no option to continue. This is
+Google's [enhanced fraud protection](https://blog.google/intl/en-in/products/launching-enhanced-fraud-protection-pilot-in-india/):
+fraud apps abuse the SMS permission to steal one-time passwords, so Google blocks the
+permission itself, whoever made the app. It isn't a sign that this app is harmful, and
+the app can't work without that permission. Read the source if you want to check what it
+does with your texts.
+
+In other countries you may instead see an "unsafe app" warning; tap **More details →
+Install anyway**.
+
+**Option 1: install from a computer with ADB (recommended).** Installing over USB isn't
+covered by the block.
+
+1. Install Google's [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)
+   on your computer (Windows, macOS or Linux), which includes `adb`. If you have Android
+   Studio, you already have it.
+2. On the relay phone, turn on **Developer options**: Settings → About phone → tap
+   **Build number** 7 times (on some phones it's under Software information).
+3. Turn on **USB debugging** in Settings → System → Developer options.
+4. Connect the phone by USB and tap **Allow** on the "Allow USB debugging?" prompt.
+5. Download the APK from [Releases](https://github.com/V24039/SMS-AI-Relay/releases) to
+   your computer, open a terminal in that folder and run:
+
+   ```bash
+   adb devices
+   ```
+
+   The phone should be listed as `device` (if it says `unauthorized`, check the phone for
+   the prompt). Then install, using the name of the file you downloaded:
+
+   ```bash
+   adb install sms-ai-relay-v0.7.0.apk
+   ```
+
+6. You can turn USB debugging off again afterwards.
+
+Updates downloaded in the browser are blocked the same way, so install them over USB too.
+`-r` replaces the installed version and keeps your settings and history:
+
+```bash
+adb install -r sms-ai-relay-v0.8.0.apk
+```
+
+If the install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, a copy signed with a
+different key is installed (for example one you built yourself). Uninstall it first with
+`adb uninstall com.smsairelay.app`; this deletes its settings.
+
+**Option 2: pause Play Protect scanning (no computer needed).** Less reliable, since
+Google may change it:
+
+1. Open the Play Store app → your profile picture → **Play Protect** → ⚙️.
+2. Turn off **Scan apps with Play Protect**.
+3. Install the APK.
+4. **Turn scanning back on straight away**; it protects the phone from real malware.
+
+**Why not just publish on the Play Store?** Play only lets an app receive SMS if it's the
+phone's default SMS app or fits a short list of exceptions (backup, spam blocking,
+smartwatch companions and similar), and sending texts to an AI service isn't one of them.
+See Google's [SMS permission policy](https://support.google.com/googleplay/android-developer/answer/10208820).
+
 ## Set up
 
 1. Open the app and tap **Grant SMS Permissions**.
