@@ -76,7 +76,7 @@ class OpenAiClient(
     }
 
     companion object {
-        private const val MAX_COMPLETION_TOKENS = 1024
+        private const val MAX_COMPLETION_TOKENS = 2048
 
         private val THINK_BLOCK = Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL)
 

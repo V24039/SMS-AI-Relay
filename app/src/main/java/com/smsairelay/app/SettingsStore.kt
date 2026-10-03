@@ -18,6 +18,7 @@ object SettingsStore {
     private const val KEY_PROVIDER = "provider"
     private const val KEY_ALLOWLIST = "sender_allowlist"
     private const val KEY_IDLE_TIMEOUT_MINUTES = "idle_timeout_minutes"
+    private const val KEY_SYSTEM_PROMPT = "custom_system_prompt"
 
     // Single key from before multi-provider support; it was always a Claude key.
     private const val KEY_LEGACY_API_KEY = "api_key"
@@ -91,6 +92,21 @@ object SettingsStore {
 
     fun setAllowlist(context: Context, raw: String) {
         prefs(context).edit().putString(KEY_ALLOWLIST, raw.trim()).apply()
+    }
+
+    // The user's own system prompt, or null to use SMS_SYSTEM_PROMPT.
+    fun getCustomSystemPrompt(context: Context): String? =
+        prefs(context).getString(KEY_SYSTEM_PROMPT, null)?.takeIf { it.isNotBlank() }
+
+    fun getSystemPrompt(context: Context): String =
+        getCustomSystemPrompt(context) ?: SMS_SYSTEM_PROMPT
+
+    // A blank value removes the override and goes back to the default.
+    fun setCustomSystemPrompt(context: Context, prompt: String) {
+        val trimmed = prompt.trim()
+        val editor = prefs(context).edit()
+        if (trimmed.isEmpty()) editor.remove(KEY_SYSTEM_PROMPT) else editor.putString(KEY_SYSTEM_PROMPT, trimmed)
+        editor.apply()
     }
 
     fun getIdleTimeoutMinutes(context: Context): Int =

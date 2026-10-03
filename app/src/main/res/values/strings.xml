@@ -18,6 +18,7 @@
     <string name="settings_allowlist_hint">+91 98765 43210</string>
     <string name="settings_idle_timeout_label">Start a new conversation after this many idle minutes. Text /new or RESET to start one anytime.</string>
     <string name="settings_idle_timeout_hint">45</string>
+    <string name="settings_system_prompt_label">Custom system prompt (optional). Leave empty to use the default shown in grey.</string>
     <string name="save">Save</string>
     <string name="settings_saved">Saved.</string>
 </resources>

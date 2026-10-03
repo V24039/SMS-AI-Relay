@@ -98,7 +98,7 @@ object SmsRelay {
         return clientFor(provider).complete(
             apiKey = apiKey,
             model = SettingsStore.getModel(context, provider),
-            systemPrompt = SMS_SYSTEM_PROMPT,
+            systemPrompt = SettingsStore.getSystemPrompt(context),
             turns = turns
         ).fold(
             onSuccess = { reply ->

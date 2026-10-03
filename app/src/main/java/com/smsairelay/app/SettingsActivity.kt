@@ -51,7 +51,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.allowlistInput.setText(SettingsStore.getAllowlistRaw(this))
         binding.idleTimeoutInput.setText(SettingsStore.getIdleTimeoutMinutes(this).toString())
 
+        binding.systemPromptInput.hint = SMS_SYSTEM_PROMPT
+        binding.systemPromptInput.setText(SettingsStore.getCustomSystemPrompt(this).orEmpty())
+
         binding.saveButton.setOnClickListener {
+            SettingsStore.setCustomSystemPrompt(this, binding.systemPromptInput.text.toString())
             stashDraft()
             providers.forEach { provider ->
                 SettingsStore.setApiKey(this, provider, keyDrafts.getValue(provider.keySlot))

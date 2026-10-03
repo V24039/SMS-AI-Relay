@@ -209,4 +209,19 @@ class SettingsStoreTest {
         SettingsStore.setIdleTimeoutMinutes(context, 10)
         assertEquals(10, SettingsStore.getIdleTimeoutMinutes(context))
     }
+
+    @Test
+    fun systemPromptDefaultsToSmsPrompt() {
+        assertNull(SettingsStore.getCustomSystemPrompt(context))
+        assertEquals(SMS_SYSTEM_PROMPT, SettingsStore.getSystemPrompt(context))
+    }
+
+    @Test
+    fun customSystemPromptRoundTripsTrimmedAndBlankRestoresDefault() {
+        SettingsStore.setCustomSystemPrompt(context, "  Answer like a pirate.  ")
+        assertEquals("Answer like a pirate.", SettingsStore.getSystemPrompt(context))
+        SettingsStore.setCustomSystemPrompt(context, "   ")
+        assertNull(SettingsStore.getCustomSystemPrompt(context))
+        assertEquals(SMS_SYSTEM_PROMPT, SettingsStore.getSystemPrompt(context))
+    }
 }

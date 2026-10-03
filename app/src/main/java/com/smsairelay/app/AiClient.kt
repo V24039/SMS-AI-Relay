@@ -10,9 +10,12 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 const val SMS_SYSTEM_PROMPT =
-    "You are a helpful assistant replying over SMS. Keep answers short, ideally " +
-        "a sentence or two, since replies are sent as text messages. Plain text " +
-        "only: no markdown, no bullet points, no headers."
+    "You are a helpful assistant replying over SMS. Default to short answers, " +
+        "a sentence or two. If the user asks for something longer, such as an " +
+        "essay, a story or a detailed explanation, write it in full at the " +
+        "length they asked for; long replies are split into several text " +
+        "messages automatically, so never refuse or shorten because of SMS. " +
+        "Plain text only: no markdown, no bullet points, no headers."
 
 data class ChatTurn(val role: Role, val text: String) {
     enum class Role { USER, ASSISTANT }
