@@ -111,6 +111,13 @@ class SmsRelayTest {
     }
 
     @Test
+    fun sendsCustomSystemPromptWhenSet() {
+        SettingsStore.setCustomSystemPrompt(context, "Answer like a pirate.")
+        handle("hi")
+        assertEquals("Answer like a pirate.", client.calls.single().systemPrompt)
+    }
+
+    @Test
     fun usesModelOverrideWhenSet() {
         SettingsStore.setModelOverride(context, AiProvider.CLAUDE, "claude-opus-5-5")
         handle("hi")
