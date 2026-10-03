@@ -47,6 +47,9 @@ Relay phone (this app, on Wi-Fi or data)
 - Eight providers: Claude, Gemini, Gemma, OpenAI, Groq, Cerebras, Mistral and OpenRouter
   (its free router picks a currently free model for each request). Switch any time in
   Settings, with an optional model override.
+- **Custom system prompt** (optional): change how the AI answers in Settings. Leave it
+  empty for the default, which keeps answers short but writes longer ones (an essay, a
+  story) in full when asked. Long replies are split into several texts automatically.
 - Conversation memory per sender, so follow-up questions work.
 - Text `/new` or `RESET` to start a fresh conversation. Conversations also reset after
   45 idle minutes (configurable), and only recent history is sent to keep requests small.
@@ -80,7 +83,7 @@ installing may need extra steps. Check the current status if the install is bloc
 2. Tap **Turn Off Battery Optimization** and allow it. Without this, Android can cut the
    app's internet while the phone is idle and replies may be late or never arrive.
 3. Open **Settings**: pick a provider, paste your API key, add your own phone number(s)
-   to the allowed senders, and tap **Save**.
+   to the allowed senders, optionally set a custom system prompt, and tap **Save**.
 4. Text the relay's number from an allowed phone. You should get an answer within a
    few seconds.
 
